@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>OAIndex</class>
+ <widget class="qMRMLWidget" name="OAIndex">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>821</width>
+    <height>926</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="ctkCollapsibleButton" name="CollapsibleButton_SelectClassificationGroups">
+     <property name="text">
+      <string>Select Classification Groups</string>
+     </property>
+     <property name="contentsFrameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <layout class="QGridLayout" name="gridLayout">
+      <item row="1" column="0">
+       <widget class="QWidget" name="widget_existingData" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout">
+         <item>
+          <widget class="QLabel" name="label_existingData">
+           <property name="text">
+            <string>Existing Data:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="ctkPathLineEdit" name="PathLineEdit_existingData"/>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QGroupBox" name="groupBox_previewClassificationGourps">
+        <property name="title">
+         <string>Preview of Classification Groups</string>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_5">
+         <item row="0" column="0">
+          <widget class="QPushButton" name="pushButton_previewGroups">
+           <property name="text">
+            <string>Preview</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="qMRMLTreeView" name="MRMLTreeView_classificationGroups">
+           <property name="sceneModelType">
+            <string>ModelHierarchy</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QWidget" name="widget_previewGroups" native="true">
+        <layout class="QGridLayout" name="gridLayout_3">
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_healthyGroup">
+           <property name="text">
+            <string>Healthy Group: </string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QSpinBox" name="spinBox_healthyGroup"/>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QGroupBox" name="groupBox_NewClassification">
+        <property name="title">
+         <string>New Classification</string>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_2">
+         <item>
+          <widget class="QWidget" name="widget_pathLineEdit" native="true">
+           <layout class="QGridLayout" name="gridLayout_6">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_newGroups">
+              <property name="text">
+               <string>New Groups:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="ctkPathLineEdit" name="PathLineEdit_NewGroups"/>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_increaseExistingData">
+              <property name="text">
+               <string>Increase existing data:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="ctkPathLineEdit" name="PathLineEdit_IncreaseExistingData"/>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="ctkCollapsibleGroupBox" name="CollapsibleGroupBox_previewVTKFiles">
+           <property name="title">
+            <string>Preview of the VTK files</string>
+           </property>
+           <property name="checked">
+            <bool>false</bool>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_3">
+            <item>
+             <widget class="ctkCheckableComboBox" name="CheckableComboBox_ChoiceOfGroup"/>
+            </item>
+            <item>
+             <widget class="QTableWidget" name="tableWidget_VTKFile">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>300</height>
+               </size>
+              </property>
+              <property name="columnCount">
+               <number>0</number>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="pushButton_previewVTKFiles">
+              <property name="text">
+               <string>Preview</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton_compute">
+           <property name="text">
+            <string>Compute</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="ctkCollapsibleButton" name="CollapsibleButton_selectInputData">
+     <property name="text">
+      <string>Select Input Data</string>
+     </property>
+     <property name="contentsFrameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_4">
+      <item row="0" column="2">
+       <widget class="qMRMLNodeComboBox" name="MRMLNodeComboBox_VTKFile"/>
+      </item>
+      <item row="4" column="2">
+       <widget class="QPushButton" name="pushButton_applyOAIndex">
+        <property name="text">
+         <string>Apply</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_VTKFile">
+        <property name="text">
+         <string>VTK file</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="2">
+       <widget class="ctkPathLineEdit" name="PathLineEdit_CSVFile"/>
+      </item>
+      <item row="1" column="2">
+       <widget class="QCheckBox" name="checkBox_fileInGroups">
+        <property name="text">
+         <string>File already in the groups</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_CSVFile">
+        <property name="text">
+         <string>CSV File</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+     <zorder>label_VTKFile</zorder>
+     <zorder>label_CSVFile</zorder>
+     <zorder>PathLineEdit_CSVFile</zorder>
+     <zorder>checkBox_fileInGroups</zorder>
+     <zorder>MRMLNodeComboBox_VTKFile</zorder>
+     <zorder>pushButton_applyOAIndex</zorder>
+    </widget>
+   </item>
+   <item>
+    <widget class="ctkCollapsibleButton" name="CollapsibleButton_Result">
+     <property name="text">
+      <string>Result / Analysis</string>
+     </property>
+     <property name="contentsFrameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>qMRMLNodeComboBox</class>
+   <extends>QWidget</extends>
+   <header>qMRMLNodeComboBox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>qMRMLTreeView</class>
+   <extends>QTreeView</extends>
+   <header>qMRMLTreeView.h</header>
+  </customwidget>
+  <customwidget>
+   <class>qMRMLWidget</class>
+   <extends>QWidget</extends>
+   <header>qMRMLWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkCheckableComboBox</class>
+   <extends>QComboBox</extends>
+   <header>ctkCheckableComboBox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>ctkCollapsibleButton</class>
+   <extends>QWidget</extends>
+   <header>ctkCollapsibleButton.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkCollapsibleGroupBox</class>
+   <extends>QGroupBox</extends>
+   <header>ctkCollapsibleGroupBox.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkPathLineEdit</class>
+   <extends>QWidget</extends>
+   <header>ctkPathLineEdit.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>
