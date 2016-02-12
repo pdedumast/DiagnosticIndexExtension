@@ -37,6 +37,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         # Global Variables
         self.logic = DiagnosticIndexLogic(self)
         self.dictVTKFiles = dict()
+        self.dictGroups = dict()
 
         # Interface
         loader = qt.QUiLoader()
@@ -75,13 +76,28 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.collapsibleGroupBox_previewVTKFiles.setDisabled(True)
         self.pushButton_compute.setDisabled(True)
 
+        #     tree view configuration
+        headerTreeView = self.MRMLTreeView_classificationGroups.header()
+        headerTreeView.setVisible(False)
+        self.MRMLTreeView_classificationGroups.setMRMLScene(slicer.app.mrmlScene())
+        self.MRMLTreeView_classificationGroups.sortFilterProxyModel().nodeTypes = ['vtkMRMLModelNode']
+        self.MRMLTreeView_classificationGroups.setDisabled(True)
+        sceneModel = self.MRMLTreeView_classificationGroups.sceneModel()
+        # sceneModel.setHorizontalHeaderLabels(["Group Classification"])
+        sceneModel.colorColumn = 1
+        sceneModel.opacityColumn = 2
+        headerTreeView.setStretchLastSection(False)
+        headerTreeView.setResizeMode(sceneModel.nameColumn,qt.QHeaderView.Stretch)
+        headerTreeView.setResizeMode(sceneModel.colorColumn,qt.QHeaderView.ResizeToContents)
+        headerTreeView.setResizeMode(sceneModel.opacityColumn,qt.QHeaderView.ResizeToContents)
+
         # ------------------------------------------------------------------------------------
         #                                   CONNECTIONS
         # ------------------------------------------------------------------------------------
         self.pathLineEdit_existingData.connect('currentPathChanged(const QString)', self.onExistingData)
         self.pathLineEdit_NewGroups.connect('currentPathChanged(const QString)', self.onNewGroups)
         self.pathLineEdit_IncreaseExistingData.connect('currentPathChanged(const QString)', self.onIncreaseExistingData)
-
+        self.pushButton_previewGroups.connect('clicked()', self.onPreviewClassificationGroup)
 
         slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onCloseScene)
 
@@ -105,13 +121,10 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
         # Read CSV File:
         self.logic.readCSVFile(self.pathLineEdit_existingData.currentPath)
-        self.logic.creationDictVTKFiles(self.dictVTKFiles)
+        self.logic.creationDictVTKFiles(self.dictGroups)
 
         # check if there is one VTK Files for one group
-        self.logic.checkCSVFile(self.dictVTKFiles)
-
-        # Set the Maximum value of spinBox_healthyGroup at the max groups possible
-        self.spinBox_healthyGroup.setMaximum(len(self.dictVTKFiles))
+        self.logic.checkCSVFile(self.dictGroups)
 
         # Enable/disable buttons
         self.enabledButtons()
@@ -123,9 +136,6 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         # Download the CSV file
         self.logic.readCSVFile(self.pathLineEdit_NewGroups.currentPath)
         self.logic.creationDictVTKFiles(self.dictVTKFiles)
-
-        # Set the Maximum value of spinBox_healthyGroup at the max groups possible
-        self.spinBox_healthyGroup.setMaximum(len(self.dictVTKFiles))
 
         # Enable/disable buttons
         self.enabledButtons()
@@ -145,6 +155,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.logic.readCSVFile(self.pathLineEdit_IncreaseExistingData.currentPath)
 
         if self.pathLineEdit_existingData.currentPath:
+            self.dictVTKFiles = self.dictGroups
+            self.dictGroups = dict()
             self.logic.creationDictVTKFiles(self.dictVTKFiles)
         else:
             # Error:
@@ -153,6 +165,41 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         # Enable/disable buttons
         self.collapsibleGroupBox_previewVTKFiles.setEnabled(True)
         self.pushButton_compute.setEnabled(True)
+
+    def onPreviewClassificationGroup(self):
+        print "------Preview of the Classification Groups------"
+        if self.spinBox_healthyGroup.value == 0:
+            # ERROR:
+            slicer.util.errorDisplay('Miss the number of the healthy group ')
+        else:
+            for i in self.dictGroups.keys():
+                # print "Cle in dictionary: " + str(i)
+                filename = self.dictGroups.get(i, None)
+                # print "filename: " + filename
+                loader = slicer.util.loadModel
+                loader(filename[0])
+
+            list = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
+            end = list.GetNumberOfItems()
+            # print "Number of Item: " + str(end)
+            for i in range(3,end):
+                model = list.GetItemAsObject(i)
+                disp = model.GetDisplayNode()
+                if self.spinBox_healthyGroup.value == (i - 2):
+                    disp.SetColor(1, 1, 1)
+                    disp.VisibilityOn()
+                else:
+                    disp.SetColor(1, 0, 0)
+                    if i == 3:
+                        disp.VisibilityOn()
+                    else:
+                        disp.VisibilityOff()
+                disp.SetOpacity(0.8)
+        # Center the 3D view of the scene
+        layoutManager = slicer.app.layoutManager()
+        threeDWidget = layoutManager.threeDWidget(0)
+        threeDView = threeDWidget.threeDView()
+        threeDView.resetFocalPoint()
 
 # ------------------------------------------------------------------------------------
 #                                   ALGORITHM
@@ -204,11 +251,15 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 value.append(self.table.GetValue(i,0).ToString())
 
         # Check
-        print "Number of VTK Files in CSV Files: " + str(len(dictVTKFiles))
-        for i in range(1, len(dictVTKFiles) + 1):
-            value = dictVTKFiles.get(i, None)
-            print "Groupe: " + str(i)
-            print "VTK Files: " + str(value)
+        # print "Number of VTK Files in CSV Files: " + str(len(dictVTKFiles))
+        # for i in range(1, len(dictVTKFiles) + 1):
+        #     value = dictVTKFiles.get(i, None)
+        #     print "Groupe: " + str(i)
+        #     print "VTK Files: " + str(value)
+
+
+        # Set the Maximum value of spinBox_healthyGroup at the max groups possible
+        self.interface.spinBox_healthyGroup.setMaximum(len(dictVTKFiles))
 
     def checkCSVFile(self, dictVTKFiles):
         for value in dictVTKFiles.values():
