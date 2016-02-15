@@ -109,6 +109,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pathLineEdit_NewGroups.connect('currentPathChanged(const QString)', self.onNewGroups)
         self.pathLineEdit_IncreaseExistingData.connect('currentPathChanged(const QString)', self.onIncreaseExistingData)
         self.checkableComboBox_ChoiceOfGroup.connect('checkedIndexesChanged()', self.onSelectedVTKFileForPreview)
+        self.pushButton_previewVTKFiles.connect('clicked()', self.onPreviewVTKFiles)
         self.pushButton_previewGroups.connect('clicked()', self.onPreviewClassificationGroup)
 
         slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onCloseScene)
@@ -227,6 +228,16 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             allcheck = True
         self.checkableComboBox_ChoiceOfGroup.blockSignals(False)
 
+    def onPreviewVTKFiles(self):
+        print "------Preview VTK Files------"
+        if self.pathLineEdit_NewGroups.currentPath or self.pathLineEdit_IncreaseExistingData.currentPath:
+            filePathCSV = slicer.app.temporaryPath + '/' + 'VTKFilesPreview_OAIndex.csv'
+            self.logic.creationCSVFile(filePathCSV, self.tableWidget_VTKFile, self.dictVTKFiles)
+            parameters = {}
+            parameters["CSVFile"] = filePathCSV
+            launcherSPV = slicer.modules.launcher
+            slicer.cli.run(launcherSPV, None, parameters)
+
     def onPreviewClassificationGroup(self):
         print "------Preview of the Classification Groups------"
         if self.spinBox_healthyGroup.value == 0:
@@ -326,6 +337,24 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
             if len(value) > 1:
                 slicer.util.errorDisplay('There are more than one vtk file by groups')
                 break
+
+    def creationCSVFile(self, filename, table, dictVTKFiles):
+        #  Export fields on different csv files
+        file = open(filename, 'w')
+        cw = csv.writer(file, delimiter=',')
+        cw.writerow(['VTK Files'])
+        row = 0
+        for cle, value in dictVTKFiles.items():
+            for vtkFile in value:
+                # check the checkBox
+                widget = table.cellWidget(row, 2)
+                tuple = widget.children()
+                checkBox = qt.QCheckBox()
+                checkBox = tuple[1]
+                if checkBox.isChecked():
+                    cw.writerow([vtkFile])
+                row = row + 1
+        file.close()
 
     def updateOptionPreviewVTKFiles(self, dictVTKFiles, checkableComboBox, table):
         row = 0
