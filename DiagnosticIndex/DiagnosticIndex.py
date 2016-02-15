@@ -91,27 +91,39 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         headerTreeView.setResizeMode(sceneModel.colorColumn,qt.QHeaderView.ResizeToContents)
         headerTreeView.setResizeMode(sceneModel.opacityColumn,qt.QHeaderView.ResizeToContents)
 
+        #     table configuration
+        self.tableWidget_VTKFile.setColumnCount(3)
+        self.tableWidget_VTKFile.setHorizontalHeaderLabels([' VTK files ', ' Group ', ' Visualization '])
+        self.tableWidget_VTKFile.setColumnWidth(0, 200)
+        horizontalHeader = self.tableWidget_VTKFile.horizontalHeader()
+        horizontalHeader.setStretchLastSection(False)
+        horizontalHeader.setResizeMode(0,qt.QHeaderView.Stretch)
+        horizontalHeader.setResizeMode(1,qt.QHeaderView.ResizeToContents)
+        horizontalHeader.setResizeMode(2,qt.QHeaderView.ResizeToContents)
+        self.tableWidget_VTKFile.verticalHeader().setVisible(False)
+
         # ------------------------------------------------------------------------------------
         #                                   CONNECTIONS
         # ------------------------------------------------------------------------------------
         self.pathLineEdit_existingData.connect('currentPathChanged(const QString)', self.onExistingData)
         self.pathLineEdit_NewGroups.connect('currentPathChanged(const QString)', self.onNewGroups)
         self.pathLineEdit_IncreaseExistingData.connect('currentPathChanged(const QString)', self.onIncreaseExistingData)
+        self.checkableComboBox_ChoiceOfGroup.connect('checkedIndexesChanged()', self.onSelectedVTKFileForPreview)
         self.pushButton_previewGroups.connect('clicked()', self.onPreviewClassificationGroup)
 
         slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onCloseScene)
 
-    # function called each time that the user "enter" in Longitudinal Quantification interface
+    # function called each time that the user "enter" in Diagnostic Index interface
     def enter(self):
         #TODO
         pass
 
-    # function called each time that the user "exit" in Longitudinal Quantification interface
+    # function called each time that the user "exit" in Diagnostic Index interface
     def exit(self):
         #TODO
         pass
 
-    # function called each time that the scene is closed (if Longitudinal Quantification has been initialized)
+    # function called each time that the scene is closed (if Diagnostic Index has been initialized)
     def onCloseScene(self, obj, event):
         #TODO
         pass
@@ -136,6 +148,9 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         # Download the CSV file
         self.logic.readCSVFile(self.pathLineEdit_NewGroups.currentPath)
         self.logic.creationDictVTKFiles(self.dictVTKFiles)
+
+        # Update the option for the preview of the vtk files in Shape Population Viewer
+        self.logic.updateOptionPreviewVTKFiles(self.dictVTKFiles, self.checkableComboBox_ChoiceOfGroup, self.tableWidget_VTKFile)
 
         # Enable/disable buttons
         self.enabledButtons()
@@ -162,9 +177,55 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             # Error:
             slicer.util.errorDisplay('No Existing Data to increase')
 
+        # Update the option for the preview of the vtk files in Shape Population Viewer
+        self.logic.updateOptionPreviewVTKFiles(self.dictVTKFiles, self.checkableComboBox_ChoiceOfGroup, self.tableWidget_VTKFile)
+
         # Enable/disable buttons
         self.collapsibleGroupBox_previewVTKFiles.setEnabled(True)
         self.pushButton_compute.setEnabled(True)
+
+    def onSelectedVTKFileForPreview(self):
+        row = 0
+        index = self.checkableComboBox_ChoiceOfGroup.currentIndex
+        for cle, value in self.dictVTKFiles.items():
+            if cle == index + 1:
+                for vtkFile in value:
+                    # check the checkBox
+                    widget = self.tableWidget_VTKFile.cellWidget(row, 2)
+                    tuple = widget.children()
+                    checkBox = tuple[1]
+                    checkBox.blockSignals(True)
+                    item = self.checkableComboBox_ChoiceOfGroup.model().item(index,0)
+                    if item.checkState():
+                        checkBox.setChecked(True)
+                    else:
+                        checkBox.setChecked(False)
+                    checkBox.blockSignals(False)
+                    row = row + 1
+            else:
+                row = row + len(value)
+
+    def onCheckBoxTableValueChanged(self):
+        row = 0
+        self.checkableComboBox_ChoiceOfGroup.blockSignals(True)
+        allcheck = True
+        for cle, value in self.dictVTKFiles.items():
+            item = self.checkableComboBox_ChoiceOfGroup.model().item(cle - 1, 0)
+            for vtkFile in value:
+                # check the checkBox
+                widget = self.tableWidget_VTKFile.cellWidget(row, 2)
+                tuple = widget.children()
+                checkBox = tuple[1]
+                checkBox.blockSignals(True)
+                if not checkBox.checkState():
+                    item.setCheckState(0)
+                    allcheck = False
+                checkBox.blockSignals(False)
+                row = row + 1
+            if allcheck:
+                item.setCheckState(2)
+            allcheck = True
+        self.checkableComboBox_ChoiceOfGroup.blockSignals(False)
 
     def onPreviewClassificationGroup(self):
         print "------Preview of the Classification Groups------"
@@ -209,7 +270,6 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
     def __init__(self, interface):
         self.interface = interface
-        self.allVTKFilesVectors = dict()
         self.table = vtk.vtkTable
 
     # === Convenience python widget methods === #
@@ -266,6 +326,37 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
             if len(value) > 1:
                 slicer.util.errorDisplay('There are more than one vtk file by groups')
                 break
+
+    def updateOptionPreviewVTKFiles(self, dictVTKFiles, checkableComboBox, table):
+        row = 0
+        for cle, value in dictVTKFiles.items():
+            # Choice of group display in ShapePopulationViewer
+            checkableComboBox.addItem("Group " + str(cle))
+            # Table:
+            for vtkFile in value:
+                table.setRowCount(row + 1)
+                # Column 0:
+                filename = os.path.basename(vtkFile)
+                labelVTKFile = qt.QLabel(filename)
+                labelVTKFile.setAlignment(0x84)
+                table.setCellWidget(row, 0, labelVTKFile)
+
+                # Column 1:
+                labelGroup = qt.QLabel(str(cle))
+                labelGroup.setAlignment(0x84)
+                table.setCellWidget(row, 1, labelGroup)
+
+                # Column 2:
+                widget = qt.QWidget()
+                layout = qt.QHBoxLayout(widget)
+                checkBox = qt.QCheckBox()
+                layout.addWidget(checkBox)
+                layout.setAlignment(0x84)
+                layout.setContentsMargins(0, 0, 0, 0)
+                widget.setLayout(layout)
+                table.setCellWidget(row, 2, widget)
+                checkBox.connect('stateChanged(int)', lambda: self.interface.onCheckBoxTableValueChanged())
+                row = row + 1
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
     pass
