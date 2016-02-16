@@ -186,45 +186,55 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_compute.setEnabled(True)
 
     def onSelectedVTKFileForPreview(self):
-        row = 0
         index = self.checkableComboBox_ChoiceOfGroup.currentIndex
-        for cle, value in self.dictVTKFiles.items():
-            if cle == index + 1:
-                for vtkFile in value:
-                    # check the checkBox
-                    widget = self.tableWidget_VTKFile.cellWidget(row, 2)
-                    tuple = widget.children()
-                    checkBox = tuple[1]
-                    checkBox.blockSignals(True)
-                    item = self.checkableComboBox_ChoiceOfGroup.model().item(index,0)
-                    if item.checkState():
-                        checkBox.setChecked(True)
-                    else:
-                        checkBox.setChecked(False)
-                    checkBox.blockSignals(False)
-                    row = row + 1
-            else:
-                row = row + len(value)
-
-    def onCheckBoxTableValueChanged(self):
-        row = 0
-        self.checkableComboBox_ChoiceOfGroup.blockSignals(True)
-        allcheck = True
-        for cle, value in self.dictVTKFiles.items():
-            item = self.checkableComboBox_ChoiceOfGroup.model().item(cle - 1, 0)
-            for vtkFile in value:
+        for row in range(0,self.tableWidget_VTKFile.rowCount):
+             # group
+            widget = self.tableWidget_VTKFile.cellWidget(row, 1)
+            tuple = widget.children()
+            comboBox = qt.QComboBox()
+            comboBox = tuple[1]
+            group = comboBox.currentIndex + 1
+            if group == (index + 1):
                 # check the checkBox
                 widget = self.tableWidget_VTKFile.cellWidget(row, 2)
                 tuple = widget.children()
                 checkBox = tuple[1]
                 checkBox.blockSignals(True)
-                if not checkBox.checkState():
-                    item.setCheckState(0)
-                    allcheck = False
+                item = self.checkableComboBox_ChoiceOfGroup.model().item(index, 0)
+                if item.checkState():
+                    checkBox.setChecked(True)
+                else:
+                    checkBox.setChecked(False)
                 checkBox.blockSignals(False)
-                row = row + 1
-            if allcheck:
-                item.setCheckState(2)
+
+    def onGroupValueChanged(self):
+        # Uptade the dictionary where the VTK files are sorted by groups
+        self.logic.onComboBoxTableValueChanged(self.dictVTKFiles, self.tableWidget_VTKFile)
+        # Update the checkable combobox
+        self.onCheckBoxTableValueChanged()
+
+    def onCheckBoxTableValueChanged(self):
+        self.checkableComboBox_ChoiceOfGroup.blockSignals(True)
+        allcheck = True
+        for cle, value in self.dictVTKFiles.items():
+            item = self.checkableComboBox_ChoiceOfGroup.model().item(cle - 1, 0)
+            if not value == []:
+                for vtkFile in value:
+                    filename = os.path.basename(vtkFile)
+                    for row in range(0,self.tableWidget_VTKFile.rowCount):
+                        qlabel = self.tableWidget_VTKFile.cellWidget(row, 0)
+                        if qlabel.text == filename:
+                            # check the checkBox
+                            widget = self.tableWidget_VTKFile.cellWidget(row, 2)
+                            tuple = widget.children()
+                            checkBox = tuple[1]
+                            if not checkBox.checkState():
+                                allcheck = False
+                                item.setCheckState(0)
+                if allcheck:
+                    item.setCheckState(2)
+            else:
+                item.setCheckState(0)
             allcheck = True
         self.checkableComboBox_ChoiceOfGroup.blockSignals(False)
 
@@ -297,7 +307,6 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                     return resulting_widget
             return None
 
-
     def readCSVFile(self, filename):
         print "CSV FilePath: " + filename
         CSVreader = vtk.vtkDelimitedTextReader()
@@ -322,7 +331,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 value.append(self.table.GetValue(i,0).ToString())
 
         # Check
-        # print "Number of VTK Files in CSV Files: " + str(len(dictVTKFiles))
+        # print "Number of Groups in CSV Files: " + str(len(dictVTKFiles))
         # for i in range(1, len(dictVTKFiles) + 1):
         #     value = dictVTKFiles.get(i, None)
         #     print "Groupe: " + str(i)
@@ -339,21 +348,32 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 break
 
     def creationCSVFile(self, filename, table, dictVTKFiles):
-        #  Export fields on different csv files
+        # Export fields on different csv files
         file = open(filename, 'w')
         cw = csv.writer(file, delimiter=',')
         cw.writerow(['VTK Files'])
-        row = 0
-        for cle, value in dictVTKFiles.items():
-            for vtkFile in value:
-                # check the checkBox
-                widget = table.cellWidget(row, 2)
+        for row in range(0,table.rowCount):
+            # check the checkBox
+            widget = table.cellWidget(row, 2)
+            tuple = widget.children()
+            checkBox = qt.QCheckBox()
+            checkBox = tuple[1]
+
+            if checkBox.isChecked():
+                # group
+                widget = table.cellWidget(row, 1)
                 tuple = widget.children()
-                checkBox = qt.QCheckBox()
-                checkBox = tuple[1]
-                if checkBox.isChecked():
-                    cw.writerow([vtkFile])
-                row = row + 1
+                comboBox = qt.QComboBox()
+                comboBox = tuple[1]
+                group = comboBox.currentIndex + 1
+                # filename of vtk file
+                qlabel = table.cellWidget(row, 0)
+                vtkFile = qlabel.text
+                value = dictVTKFiles.get(group, None)
+                if any(vtkFile in s for s in value):
+                    pathList = [s for s in value if vtkFile in s]
+                    pathVTKFile = pathList[0]
+                    cw.writerow([pathVTKFile])
         file.close()
 
     def updateOptionPreviewVTKFiles(self, dictVTKFiles, checkableComboBox, table):
@@ -371,9 +391,17 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 table.setCellWidget(row, 0, labelVTKFile)
 
                 # Column 1:
-                labelGroup = qt.QLabel(str(cle))
-                labelGroup.setAlignment(0x84)
-                table.setCellWidget(row, 1, labelGroup)
+                widget = qt.QWidget()
+                layout = qt.QHBoxLayout(widget)
+                comboBox = qt.QComboBox()
+                comboBox.addItems(dictVTKFiles.keys())
+                comboBox.setCurrentIndex(cle - 1)
+                layout.addWidget(comboBox)
+                layout.setAlignment(0x84)
+                layout.setContentsMargins(0, 0, 0, 0)
+                widget.setLayout(layout)
+                table.setCellWidget(row, 1, widget)
+                comboBox.connect('currentIndexChanged(int)', self.interface.onGroupValueChanged)
 
                 # Column 2:
                 widget = qt.QWidget()
@@ -384,8 +412,31 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 layout.setContentsMargins(0, 0, 0, 0)
                 widget.setLayout(layout)
                 table.setCellWidget(row, 2, widget)
-                checkBox.connect('stateChanged(int)', lambda: self.interface.onCheckBoxTableValueChanged())
+                checkBox.connect('stateChanged(int)', self.interface.onCheckBoxTableValueChanged)
                 row = row + 1
+
+    def onComboBoxTableValueChanged(self, dictVTKFiles, table):
+        for row in range(0,table.rowCount):
+            # group
+            widget = table.cellWidget(row, 1)
+            tuple = widget.children()
+            comboBox = qt.QComboBox()
+            comboBox = tuple[1]
+            group = comboBox.currentIndex + 1
+            # filename of vtk file
+            qlabel = table.cellWidget(row, 0)
+            vtkFile = qlabel.text
+            # Find
+            value = dictVTKFiles.get(group, None)
+            if not any(vtkFile in s for s in value):
+                for value in dictVTKFiles.values():
+                    if any(vtkFile in s for s in value):
+                        pathList = [s for s in value if vtkFile in s]
+                        path = pathList[0]
+                        value.remove(path)
+                        newvalue = dictVTKFiles.get(group, None)
+                        newvalue.append(path)
+                        break
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
     pass
