@@ -110,6 +110,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pathLineEdit_IncreaseExistingData.connect('currentPathChanged(const QString)', self.onIncreaseExistingData)
         self.checkableComboBox_ChoiceOfGroup.connect('checkedIndexesChanged()', self.onSelectedVTKFileForPreview)
         self.pushButton_previewVTKFiles.connect('clicked()', self.onPreviewVTKFiles)
+        self.pushButton_compute.connect('clicked()', self.onComputeNewClassification)
         self.pushButton_previewGroups.connect('clicked()', self.onPreviewClassificationGroup)
 
         slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onCloseScene)
@@ -247,6 +248,11 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             parameters["CSVFile"] = filePathCSV
             launcherSPV = slicer.modules.launcher
             slicer.cli.run(launcherSPV, None, parameters)
+
+    def onComputeNewClassification(self):
+        for key, value in self.dictVTKFiles.items():
+            # Delete all the array in vtk file
+            self.logic.deleteArray(value)
 
     def onPreviewClassificationGroup(self):
         print "------Preview of the Classification Groups------"
@@ -437,6 +443,32 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                         newvalue = dictVTKFiles.get(group, None)
                         newvalue.append(path)
                         break
+
+    def deleteArray(self, value):
+        for vtkFile in value:
+            # Read VTK File
+            reader = vtk.vtkDataSetReader()
+            reader.SetFileName(vtkFile)
+            reader.ReadAllVectorsOn()
+            reader.ReadAllScalarsOn()
+            reader.Update()
+            polyData = reader.GetOutput()
+            polyDataCopy = vtk.vtkPolyData()
+            polyDataCopy.DeepCopy(polyData)
+            pointData = polyDataCopy.GetPointData()
+            numAttributes = pointData.GetNumberOfArrays()
+            for i in range(0, numAttributes):
+                pointData.RemoveArray(0)
+            # Save the vtk file without array in the temporary directory in Slicer
+            writer = vtk.vtkPolyDataWriter()
+            filepath = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
+            writer.SetFileName(filepath)
+            if vtk.VTK_MAJOR_VERSION <= 5:
+                writer.SetInput(polyDataCopy)
+            else:
+                writer.SetInputData(polyDataCopy)
+            writer.Update()
+            writer.Write()
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
     pass
