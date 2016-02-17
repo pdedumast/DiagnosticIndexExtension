@@ -254,6 +254,9 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             # Delete all the array in vtk file
             self.logic.deleteArray(value)
 
+            # Create the datalist to Statismo
+            datalist = self.logic.creationTXTFile(key, value)
+
     def onPreviewClassificationGroup(self):
         print "------Preview of the Classification Groups------"
         if self.spinBox_healthyGroup.value == 0:
@@ -469,6 +472,16 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 writer.SetInputData(polyDataCopy)
             writer.Update()
             writer.Write()
+
+    def creationTXTFile(self, key, value):
+        filename = "group" + str(key)
+        pathDataList = slicer.app.temporaryPath + '/' + filename + '.txt'
+        file = open(pathDataList, "w")
+        for vtkFile in value:
+            pathfile = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
+            file.write(pathfile + "\n")
+        file.close()
+        return pathDataList
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
     pass
