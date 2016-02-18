@@ -541,22 +541,27 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         # remove of 'groupX.txt'
         filename = "group" + str(key)
         dataListPath = slicer.app.temporaryPath + '/' + filename + '.txt'
-        os.remove(dataListPath)
+        if os.path.exists(dataListPath):
+            os.remove(dataListPath)
 
         # remove of 'groupX.h5'
         outputFilePath = slicer.app.temporaryPath + '/' + filename + '.h5'
-        os.remove(outputFilePath)
+        if os.path.exists(outputFilePath):
+            os.remove(outputFilePath)
 
         # remove of samplePC1.vtk and randomsample.vtk
         path = slicer.app.temporaryPath + '/samplePC1.vtk'
-        os.remove(path)
+        if os.path.exists(path):
+            os.remove(path)
         path = slicer.app.temporaryPath + '/randomsample.vtk'
-        os.remove(path)
+        if os.path.exists(path):
+            os.remove(path)
 
         # remove of all the vtk file
         for vtkFile in value:
             filepath = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
-            os.remove(filepath)
+            if os.path.exists(filepath):
+                os.remove(filepath)
 
     def storageMean(self, dictGroups, key):
         filename = "meanGroup" + str(key)
