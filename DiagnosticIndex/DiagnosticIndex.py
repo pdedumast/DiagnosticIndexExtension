@@ -241,6 +241,10 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     def onPreviewVTKFiles(self):
         print "------Preview VTK Files------"
         if self.pathLineEdit_NewGroups.currentPath or self.pathLineEdit_IncreaseExistingData.currentPath:
+            # Creation of a color map to visualize each group with a different color in ShapePopulationViewer
+            self.logic.addColorMap(self.tableWidget_VTKFile, self.dictVTKFiles)
+
+            # Creation of a CSV file to download the vtk files in ShapePopulationViewer
             filePathCSV = slicer.app.temporaryPath + '/' + 'VTKFilesPreview_OAIndex.csv'
             self.logic.creationCSVFile(filePathCSV, self.tableWidget_VTKFile, self.dictVTKFiles)
             parameters = {}
@@ -347,6 +351,46 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 slicer.util.errorDisplay('There are more than one vtk file by groups')
                 break
 
+    def addColorMap(self, table, dictVTKFiles):
+        for key, value in dictVTKFiles.items():
+            for vtkFile in value:
+                # Read VTK File
+                reader = vtk.vtkDataSetReader()
+                reader.SetFileName(vtkFile)
+                reader.ReadAllVectorsOn()
+                reader.ReadAllScalarsOn()
+                reader.Update()
+                polyData = reader.GetOutput()
+                polyDataCopy = vtk.vtkPolyData()
+                polyDataCopy.DeepCopy(polyData)
+                pointData = polyDataCopy.GetPointData()
+
+                # New Array
+                numPts = polyDataCopy.GetPoints().GetNumberOfPoints()
+                arrayName = "DisplayClassificationGroup"
+                hasArrayInt = pointData.HasArray(arrayName)
+                if hasArrayInt == 1:
+                    pointData.RemoveArray(arrayName)
+                arrayToAdd = vtk.vtkDoubleArray()
+                arrayToAdd.SetName(arrayName)
+                arrayToAdd.SetNumberOfComponents(1)
+                arrayToAdd.SetNumberOfTuples(numPts)
+                for i in range(0, numPts):
+                    arrayToAdd.InsertTuple1(i, key)
+                pointData.AddArray(arrayToAdd)
+
+                # Save in the temporary directory in Slicer the vtk file with a new array
+                # for the visualization in Shape Population Viewer
+                writer = vtk.vtkPolyDataWriter()
+                filepath = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
+                writer.SetFileName(filepath)
+                if vtk.VTK_MAJOR_VERSION <= 5:
+                    writer.SetInput(polyDataCopy)
+                else:
+                    writer.SetInputData(polyDataCopy)
+                writer.Update()
+                writer.Write()
+
     def creationCSVFile(self, filename, table, dictVTKFiles):
         # Export fields on different csv files
         file = open(filename, 'w')
@@ -369,11 +413,8 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 # filename of vtk file
                 qlabel = table.cellWidget(row, 0)
                 vtkFile = qlabel.text
-                value = dictVTKFiles.get(group, None)
-                if any(vtkFile in s for s in value):
-                    pathList = [s for s in value if vtkFile in s]
-                    pathVTKFile = pathList[0]
-                    cw.writerow([pathVTKFile])
+                pathVTKFile = slicer.app.temporaryPath + '/' + vtkFile
+                cw.writerow([pathVTKFile])
         file.close()
 
     def updateOptionPreviewVTKFiles(self, dictVTKFiles, checkableComboBox, table):
