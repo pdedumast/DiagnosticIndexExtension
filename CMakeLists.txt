@@ -11,6 +11,7 @@ set(EXTENSION_CONTRIBUTORS “Laura Pascal (DCBIA-OrthoLab, University of Michig
 set(EXTENSION_DESCRIPTION "TODO")
 set(EXTENSION_ICONURL "TODO")
 set(EXTENSION_SCREENSHOTURLS "TODO")
+set(EXTENSION_DEPENDS ShapePopulationViewer)
 
 #-----------------------------------------------------------------------------
 # Extension dependencies
