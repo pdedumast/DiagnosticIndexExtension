@@ -110,7 +110,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pathLineEdit_IncreaseExistingData.connect('currentPathChanged(const QString)', self.onIncreaseExistingData)
         self.checkableComboBox_ChoiceOfGroup.connect('checkedIndexesChanged()', self.onSelectedVTKFileForPreview)
         self.pushButton_previewVTKFiles.connect('clicked()', self.onPreviewVTKFiles)
-        self.pushButton_compute.connect('clicked()', self.onComputeNewClassification)
+        self.pushButton_compute.connect('clicked()', lambda: self.logic.onComputeNewClassification(self.dictVTKFiles, self.dictGroups))
         self.pushButton_previewGroups.connect('clicked()', self.onPreviewClassificationGroup)
 
         slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onCloseScene)
@@ -248,23 +248,6 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             parameters["CSVFile"] = filePathCSV
             launcherSPV = slicer.modules.launcher
             slicer.cli.run(launcherSPV, None, parameters)
-
-    def onComputeNewClassification(self):
-        for key, value in self.dictVTKFiles.items():
-            # Delete all the array in vtk file
-            self.logic.deleteArray(value)
-
-            # Create the datalist to Statismo
-            datalist = self.logic.creationTXTFile(key, value)
-
-            # Call Statismo
-            self.logic.computeMean(key, datalist)
-
-            # Remove the files previously created in temporary directory
-            self.logic.removeDataInTemporaryDirectory(key, value)
-
-            # Storage of the means for each group
-            self.logic.storageMean(self.dictGroups, key)
 
     def onPreviewClassificationGroup(self):
         print "------Preview of the Classification Groups------"
@@ -456,7 +439,25 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                         newvalue.append(path)
                         break
 
-    def deleteArray(self, value):
+    def onComputeNewClassification(self, dictVTKFiles, dictGroups):
+        for key, value in dictVTKFiles.items():
+            # Delete all the array in vtk file
+            self.deleteArray(key, value)
+
+            if len(value) > 1:
+                # Create the datalist to Statismo
+                datalist = self.creationTXTFile(key, value)
+
+                # Call Statismo
+                self.computeMean(key, datalist)
+
+                # Remove the files previously created in temporary directory
+                self.removeDataInTemporaryDirectory(key, value)
+
+            # Storage of the means for each group
+            self.storageMean(dictGroups, key)
+
+    def deleteArray(self, key, value):
         for vtkFile in value:
             # Read VTK File
             reader = vtk.vtkDataSetReader()
@@ -473,7 +474,10 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 pointData.RemoveArray(0)
             # Save the vtk file without array in the temporary directory in Slicer
             writer = vtk.vtkPolyDataWriter()
-            filepath = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
+            if len(value) > 1:
+                filepath = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
+            else:
+                filepath = slicer.app.temporaryPath + '/meanGroup' + str(key) + '.vtk'
             writer.SetFileName(filepath)
             if vtk.VTK_MAJOR_VERSION <= 5:
                 writer.SetInput(polyDataCopy)
@@ -495,7 +499,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
     def computeMean(self, key, datalist):
         print "----Compute the mean of each group:"
         # Call of Statismo (creation of hdf5 file)
-        statismoBuildShapeModel = "/Users/lpascal-admin/Desktop/TinyCode/Statismo/statismo-build/Statismo-build/bin/statismo-build-shape-model"
+        statismoBuildShapeModel = "/Users/lpascal/Applications/Statismo-static/statismo-build/Statismo-build/bin/statismo-build-shape-model"
         arguments = list()
         arguments.append("--data-list")
         arguments.append(datalist)
@@ -513,7 +517,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         # print "error: " + str(process.error())
 
         # Read the hdf5 to have the mean of the group
-        vtkBasicSamplingExample = "/Users/lpascal-admin/Desktop/TinyCode/Statismo/statismo-build/Statismo-build/bin/vtkBasicSamplingExample"
+        vtkBasicSamplingExample = "/Users/lpascal/Applications/Statismo-static/statismo-build/Statismo-build/bin/vtkBasicSamplingExample"
         arguments = list()
         modelname = outputFile
         arguments.append(modelname)
