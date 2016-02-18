@@ -257,7 +257,10 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             # Create the datalist to Statismo
             datalist = self.logic.creationTXTFile(key, value)
 
-            # Remove the vtk file and txt file in temporary directory
+            # Call Statismo
+            self.logic.computeMean(key, datalist)
+
+            # Remove the files previously created in temporary directory
             self.logic.removeDataInTemporaryDirectory(key, value)
 
     def onPreviewClassificationGroup(self):
@@ -478,18 +481,72 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
 
     def creationTXTFile(self, key, value):
         filename = "group" + str(key)
-        pathDataList = slicer.app.temporaryPath + '/' + filename + '.txt'
-        file = open(pathDataList, "w")
+        dataListPath = slicer.app.temporaryPath + '/' + filename + '.txt'
+        file = open(dataListPath, "w")
         for vtkFile in value:
             pathfile = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
             file.write(pathfile + "\n")
         file.close()
-        return pathDataList
+        return dataListPath
+
+    def computeMean(self, key, datalist):
+        print "----Compute the mean of each group:"
+        # Call of Statismo (creation of hdf5 file)
+        statismoBuildShapeModel = "/Users/lpascal-admin/Desktop/TinyCode/Statismo/statismo-build/Statismo-build/bin/statismo-build-shape-model"
+        arguments = list()
+        arguments.append("--data-list")
+        arguments.append(datalist)
+        arguments.append("--output-file")
+        filename = "group" + str(key)
+        outputFile = slicer.app.temporaryPath + '/' + filename + '.h5'
+        arguments.append(outputFile)
+        process = qt.QProcess()
+        print "Calling " + os.path.basename(statismoBuildShapeModel) + " with this arguments: "
+        print arguments
+        process.start(statismoBuildShapeModel, arguments)
+        process.waitForStarted()
+        # print "state: " + str(process.state())
+        process.waitForFinished()
+        # print "error: " + str(process.error())
+
+        # Read the hdf5 to have the mean of the group
+        vtkBasicSamplingExample = "/Users/lpascal-admin/Desktop/TinyCode/Statismo/statismo-build/Statismo-build/bin/vtkBasicSamplingExample"
+        arguments = list()
+        modelname = outputFile
+        arguments.append(modelname)
+        resultdir = slicer.app.temporaryPath
+        arguments.append(resultdir)
+        process2 = qt.QProcess()
+        print "Calling " + os.path.basename(vtkBasicSamplingExample) + " with this arguments:  "
+        print arguments
+        process2.start(vtkBasicSamplingExample, arguments)
+        process2.waitForStarted()
+        # print "state: " + str(process2.state())
+        process2.waitForFinished()
+        # print "error: " + str(process2.error())
+
+        # Rename of the mean of the group
+        oldname = slicer.app.temporaryPath + '/mean.vtk'
+        newname = slicer.app.temporaryPath + '/meanGroup' + str(key) + '.vtk'
+        os.rename(oldname, newname)
 
     def removeDataInTemporaryDirectory(self, key, value):
+        # remove of 'groupX.txt'
         filename = "group" + str(key)
-        pathDataList = slicer.app.temporaryPath + '/' + filename + '.txt'
-        os.remove(pathDataList)
+        dataListPath = slicer.app.temporaryPath + '/' + filename + '.txt'
+        os.remove(dataListPath)
+
+        # remove of 'groupX.h5'
+        outputFilePath = slicer.app.temporaryPath + '/' + filename + '.h5'
+        os.remove(outputFilePath)
+
+        # remove of samplePC1.vtk and randomsample.vtk
+        path = slicer.app.temporaryPath + '/samplePC1.vtk'
+        os.remove(path)
+        path = slicer.app.temporaryPath + '/randomsample.vtk'
+        os.remove(path)
+
+        # remove of all the vtk file
         for vtkFile in value:
             filepath = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
             os.remove(filepath)
