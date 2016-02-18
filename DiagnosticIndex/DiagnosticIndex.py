@@ -250,7 +250,11 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             parameters = {}
             parameters["CSVFile"] = filePathCSV
             launcherSPV = slicer.modules.launcher
-            slicer.cli.run(launcherSPV, None, parameters)
+            slicer.cli.run(launcherSPV, None, parameters, wait_for_completion=True)
+
+            # Remove the vtk files previously created in the temporary directory of Slicer
+            for key, value in self.dictVTKFiles.items():
+                self.logic.removeDataInTemporaryDirectory(key, value)
 
     def onPreviewClassificationGroup(self):
         print "------Preview of the Classification Groups------"
@@ -478,6 +482,32 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                         newvalue = dictVTKFiles.get(group, None)
                         newvalue.append(path)
                         break
+
+    def removeDataInTemporaryDirectory(self, key, value):
+        # remove of 'groupX.txt'
+        filename = "group" + str(key)
+        dataListPath = slicer.app.temporaryPath + '/' + filename + '.txt'
+        if os.path.exists(dataListPath):
+            os.remove(dataListPath)
+
+        # remove of 'groupX.h5'
+        outputFilePath = slicer.app.temporaryPath + '/' + filename + '.h5'
+        if os.path.exists(outputFilePath):
+            os.remove(outputFilePath)
+
+        # remove of samplePC1.vtk and randomsample.vtk
+        path = slicer.app.temporaryPath + '/samplePC1.vtk'
+        if os.path.exists(path):
+            os.remove(path)
+        path = slicer.app.temporaryPath + '/randomsample.vtk'
+        if os.path.exists(path):
+            os.remove(path)
+
+        # remove of all the vtk file
+        for vtkFile in value:
+            filepath = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
+            if os.path.exists(filepath):
+                os.remove(filepath)
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
     pass
