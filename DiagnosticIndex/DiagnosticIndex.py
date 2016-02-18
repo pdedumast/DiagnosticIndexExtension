@@ -263,6 +263,9 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             # Remove the files previously created in temporary directory
             self.logic.removeDataInTemporaryDirectory(key, value)
 
+            # Storage of the means for each group
+            self.logic.storageMean(self.dictGroups, key)
+
     def onPreviewClassificationGroup(self):
         print "------Preview of the Classification Groups------"
         if self.spinBox_healthyGroup.value == 0:
@@ -550,6 +553,13 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         for vtkFile in value:
             filepath = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
             os.remove(filepath)
+
+    def storageMean(self, dictGroups, key):
+        filename = "meanGroup" + str(key)
+        meanPath = slicer.app.temporaryPath + '/' + filename + '.vtk'
+        value = list()
+        value.append(meanPath)
+        dictGroups[key] = value
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
     pass
