@@ -110,6 +110,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pathLineEdit_IncreaseExistingData.connect('currentPathChanged(const QString)', self.onIncreaseExistingData)
         self.checkableComboBox_ChoiceOfGroup.connect('checkedIndexesChanged()', self.onSelectedVTKFileForPreview)
         self.pushButton_previewVTKFiles.connect('clicked()', self.onPreviewVTKFiles)
+        self.pushButton_compute.connect('clicked()', lambda: self.logic.onComputeNewClassification(self.dictVTKFiles, self.dictGroups))
         self.pushButton_previewGroups.connect('clicked()', self.onPreviewClassificationGroup)
 
         slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onCloseScene)
@@ -483,6 +484,104 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                         newvalue.append(path)
                         break
 
+    def onComputeNewClassification(self, dictVTKFiles, dictGroups):
+        for key, value in dictVTKFiles.items():
+            # Delete all the array in vtk file
+            self.deleteArray(key, value)
+
+            if len(value) > 1:
+                # Create the datalist to Statismo
+                datalist = self.creationTXTFile(key, value)
+
+                # Call Statismo
+                self.computeMean(key, datalist)
+
+                # Remove the files previously created in temporary directory
+                self.removeDataInTemporaryDirectory(key, value)
+
+            # Storage of the means for each group
+            self.storageMean(dictGroups, key)
+
+    def deleteArray(self, key, value):
+        for vtkFile in value:
+            # Read VTK File
+            reader = vtk.vtkDataSetReader()
+            reader.SetFileName(vtkFile)
+            reader.ReadAllVectorsOn()
+            reader.ReadAllScalarsOn()
+            reader.Update()
+            polyData = reader.GetOutput()
+            polyDataCopy = vtk.vtkPolyData()
+            polyDataCopy.DeepCopy(polyData)
+            pointData = polyDataCopy.GetPointData()
+            numAttributes = pointData.GetNumberOfArrays()
+            for i in range(0, numAttributes):
+                pointData.RemoveArray(0)
+            # Save the vtk file without array in the temporary directory in Slicer
+            writer = vtk.vtkPolyDataWriter()
+            if len(value) > 1:
+                filepath = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
+            else:
+                filepath = slicer.app.temporaryPath + '/meanGroup' + str(key) + '.vtk'
+            writer.SetFileName(filepath)
+            if vtk.VTK_MAJOR_VERSION <= 5:
+                writer.SetInput(polyDataCopy)
+            else:
+                writer.SetInputData(polyDataCopy)
+            writer.Update()
+            writer.Write()
+
+    def creationTXTFile(self, key, value):
+        filename = "group" + str(key)
+        dataListPath = slicer.app.temporaryPath + '/' + filename + '.txt'
+        file = open(dataListPath, "w")
+        for vtkFile in value:
+            pathfile = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
+            file.write(pathfile + "\n")
+        file.close()
+        return dataListPath
+
+    def computeMean(self, key, datalist):
+        print "----Compute the mean of each group:"
+        # Call of Statismo (creation of hdf5 file)
+        statismoBuildShapeModel = "/Users/lpascal/Applications/Statismo-static/statismo-build/Statismo-build/bin/statismo-build-shape-model"
+        arguments = list()
+        arguments.append("--data-list")
+        arguments.append(datalist)
+        arguments.append("--output-file")
+        filename = "group" + str(key)
+        outputFile = slicer.app.temporaryPath + '/' + filename + '.h5'
+        arguments.append(outputFile)
+        process = qt.QProcess()
+        print "Calling " + os.path.basename(statismoBuildShapeModel) + " with this arguments: "
+        print arguments
+        process.start(statismoBuildShapeModel, arguments)
+        process.waitForStarted()
+        # print "state: " + str(process.state())
+        process.waitForFinished()
+        # print "error: " + str(process.error())
+
+        # Read the hdf5 to have the mean of the group
+        vtkBasicSamplingExample = "/Users/lpascal/Applications/Statismo-static/statismo-build/Statismo-build/bin/vtkBasicSamplingExample"
+        arguments = list()
+        modelname = outputFile
+        arguments.append(modelname)
+        resultdir = slicer.app.temporaryPath
+        arguments.append(resultdir)
+        process2 = qt.QProcess()
+        print "Calling " + os.path.basename(vtkBasicSamplingExample) + " with this arguments:  "
+        print arguments
+        process2.start(vtkBasicSamplingExample, arguments)
+        process2.waitForStarted()
+        # print "state: " + str(process2.state())
+        process2.waitForFinished()
+        # print "error: " + str(process2.error())
+
+        # Rename of the mean of the group
+        oldname = slicer.app.temporaryPath + '/mean.vtk'
+        newname = slicer.app.temporaryPath + '/meanGroup' + str(key) + '.vtk'
+        os.rename(oldname, newname)
+
     def removeDataInTemporaryDirectory(self, key, value):
         # remove of 'groupX.txt'
         filename = "group" + str(key)
@@ -508,6 +607,14 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
             filepath = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
             if os.path.exists(filepath):
                 os.remove(filepath)
+
+    def storageMean(self, dictGroups, key):
+        filename = "meanGroup" + str(key)
+        meanPath = slicer.app.temporaryPath + '/' + filename + '.vtk'
+        value = list()
+        value.append(meanPath)
+        dictGroups[key] = value
+
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
     pass
