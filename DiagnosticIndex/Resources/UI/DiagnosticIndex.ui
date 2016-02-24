@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>821</width>
-    <height>926</height>
+    <height>896</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -152,6 +152,20 @@
            </property>
           </widget>
          </item>
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_exportNewClassification">
+           <item>
+            <widget class="ctkDirectoryButton" name="DirectoryButton_exportNewClassification"/>
+           </item>
+           <item>
+            <widget class="QPushButton" name="pushButton_exportNewClassification">
+             <property name="text">
+              <string>Export</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
         </layout>
        </widget>
       </item>
@@ -268,6 +282,11 @@
    <extends>QGroupBox</extends>
    <header>ctkCollapsibleGroupBox.h</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkDirectoryButton</class>
+   <extends>QWidget</extends>
+   <header>ctkDirectoryButton.h</header>
   </customwidget>
   <customwidget>
    <class>ctkPathLineEdit</class>

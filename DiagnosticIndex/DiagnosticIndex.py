@@ -65,6 +65,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.spinBox_healthyGroup = self.logic.get('spinBox_healthyGroup')
         self.pushButton_previewGroups = self.logic.get('pushButton_previewGroups')
         self.MRMLTreeView_classificationGroups = self.logic.get('MRMLTreeView_classificationGroups')
+        self.directoryButton_exportNewClassification = self.logic.get('DirectoryButton_exportNewClassification')
+        self.pushButton_exportNewClassification = self.logic.get('pushButton_exportNewClassification')
 
         # Widget Configuration
 
@@ -75,6 +77,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_compute.setDisabled(True)
         self.collapsibleGroupBox_previewVTKFiles.setDisabled(True)
         self.pushButton_compute.setDisabled(True)
+        self.directoryButton_exportNewClassification.hide()
+        self.pushButton_exportNewClassification.hide()
 
         #     tree view configuration
         headerTreeView = self.MRMLTreeView_classificationGroups.header()
@@ -110,7 +114,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pathLineEdit_IncreaseExistingData.connect('currentPathChanged(const QString)', self.onIncreaseExistingData)
         self.checkableComboBox_ChoiceOfGroup.connect('checkedIndexesChanged()', self.onSelectedVTKFileForPreview)
         self.pushButton_previewVTKFiles.connect('clicked()', self.onPreviewVTKFiles)
-        self.pushButton_compute.connect('clicked()', lambda: self.logic.onComputeNewClassification(self.dictVTKFiles, self.dictGroups))
+        self.pushButton_compute.connect('clicked()', self.onComputeNewClassification)
+        self.pushButton_exportNewClassification.connect('clicked()', lambda: self.logic.onExportNewClassification(self.directoryButton_exportNewClassification, self.dictGroups))
         self.pushButton_previewGroups.connect('clicked()', self.onPreviewClassificationGroup)
 
         slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onCloseScene)
@@ -247,7 +252,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
             # Creation of a CSV file to download the vtk files in ShapePopulationViewer
             filePathCSV = slicer.app.temporaryPath + '/' + 'VTKFilesPreview_OAIndex.csv'
-            self.logic.creationCSVFile(filePathCSV, self.tableWidget_VTKFile, self.dictVTKFiles)
+            self.logic.creationCSVFileForSPV(filePathCSV, self.tableWidget_VTKFile, self.dictVTKFiles)
             parameters = {}
             parameters["CSVFile"] = filePathCSV
             launcherSPV = slicer.modules.launcher
@@ -256,6 +261,27 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             # Remove the vtk files previously created in the temporary directory of Slicer
             for key, value in self.dictVTKFiles.items():
                 self.logic.removeDataInTemporaryDirectory(key, value)
+
+    def onComputeNewClassification(self):
+        for key, value in self.dictVTKFiles.items():
+            # Delete all the array in vtk file
+            self.logic.deleteArray(key, value)
+
+            if len(value) > 1:
+                # Create the datalist to Statismo
+                datalist = self.logic.creationTXTFile(key, value)
+
+                # Call Statismo
+                self.logic.computeMean(key, datalist)
+
+                # Remove the files previously created in temporary directory
+                self.logic.removeDataInTemporaryDirectory(key, value)
+
+            # Storage of the means for each group
+            self.logic.storageMean(self.dictGroups, key)
+
+        self.directoryButton_exportNewClassification.show()
+        self.pushButton_exportNewClassification.show()
 
     def onPreviewClassificationGroup(self):
         print "------Preview of the Classification Groups------"
@@ -396,7 +422,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 writer.Update()
                 writer.Write()
 
-    def creationCSVFile(self, filename, table, dictVTKFiles):
+    def creationCSVFileForSPV(self, filename, table, dictVTKFiles):
         # Export fields on different csv files
         file = open(filename, 'w')
         cw = csv.writer(file, delimiter=',')
@@ -484,24 +510,6 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                         newvalue.append(path)
                         break
 
-    def onComputeNewClassification(self, dictVTKFiles, dictGroups):
-        for key, value in dictVTKFiles.items():
-            # Delete all the array in vtk file
-            self.deleteArray(key, value)
-
-            if len(value) > 1:
-                # Create the datalist to Statismo
-                datalist = self.creationTXTFile(key, value)
-
-                # Call Statismo
-                self.computeMean(key, datalist)
-
-                # Remove the files previously created in temporary directory
-                self.removeDataInTemporaryDirectory(key, value)
-
-            # Storage of the means for each group
-            self.storageMean(dictGroups, key)
-
     def deleteArray(self, key, value):
         for vtkFile in value:
             # Read VTK File
@@ -518,18 +526,22 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
             for i in range(0, numAttributes):
                 pointData.RemoveArray(0)
             # Save the vtk file without array in the temporary directory in Slicer
-            writer = vtk.vtkPolyDataWriter()
             if len(value) > 1:
-                filepath = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
+                filename = os.path.basename(vtkFile)
             else:
-                filepath = slicer.app.temporaryPath + '/meanGroup' + str(key) + '.vtk'
-            writer.SetFileName(filepath)
-            if vtk.VTK_MAJOR_VERSION <= 5:
-                writer.SetInput(polyDataCopy)
-            else:
-                writer.SetInputData(polyDataCopy)
-            writer.Update()
-            writer.Write()
+                filename = 'meanGroup' + str(key) + '.vtk'
+            filepath = slicer.app.temporaryPath + '/' + filename
+            self.saveVTKFile(polyDataCopy, filepath)
+
+    def saveVTKFile(self, polydata, filepath):
+        writer = vtk.vtkPolyDataWriter()
+        writer.SetFileName(filepath)
+        if vtk.VTK_MAJOR_VERSION <= 5:
+            writer.SetInput(polydata)
+        else:
+            writer.SetInputData(polydata)
+        writer.Update()
+        writer.Write()
 
     def creationTXTFile(self, key, value):
         filename = "group" + str(key)
@@ -615,6 +627,71 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         value.append(meanPath)
         dictGroups[key] = value
 
+    def onExportNewClassification(self, directoryButton_exportNewClassification, dictGroups):
+        print "-----Export Mean Group"
+
+        # Message if files already exist
+        directory = directoryButton_exportNewClassification.directory.encode('utf-8')
+        messageBox = ctk.ctkMessageBox()
+        messageBox.setWindowTitle(' /!\ WARNING /!\ ')
+        messageBox.setIcon(messageBox.Warning)
+        filePathExisting = list()
+
+        CSVfilePath = directory + "/NewClassification.csv"
+        if os.path.exists(CSVfilePath):
+            filePathExisting.append(CSVfilePath)
+        for key, value in dictGroups.items():
+            VTKFilename = os.path.basename(value[0])
+            VTKFilePath = directory + '/' + VTKFilename
+            if os.path.exists(VTKFilePath):
+                filePathExisting.append(VTKFilePath)
+        if len(filePathExisting) > 0:
+            if len(filePathExisting) == 1:
+                text = 'File ' + filePathExisting[0] + ' already exists!'
+                informativeText = 'Do you want to replace it ?'
+            elif len(filePathExisting) > 1:
+                text = 'These files are already exist: \n'
+                for path in filePathExisting:
+                    text = text + path + '\n'
+                    informativeText = 'Do you want to replace them ?'
+            messageBox.setText(text)
+            messageBox.setInformativeText(informativeText)
+            messageBox.setStandardButtons( messageBox.No | messageBox.Yes)
+            choice = messageBox.exec_()
+            if choice == messageBox.No:
+                return
+
+        # Save the CSV File and the means of each group
+        dictForCSV = dict()
+        for key, value in dictGroups.items():
+            if os.path.exists(value[0]):
+                # Read VTK File
+                reader = vtk.vtkDataSetReader()
+                reader.SetFileName(value[0])
+                reader.ReadAllVectorsOn()
+                reader.ReadAllScalarsOn()
+                reader.Update()
+                polyData = reader.GetOutput()
+                VTKFilename = os.path.basename(value[0])
+                VTKFilePath = directory + '/' + VTKFilename
+                self.saveVTKFile(polyData, VTKFilePath)
+                valueList = list()
+                valueList.append(VTKFilePath)
+                dictForCSV[key] = valueList
+        self.creationCSVFileForClassificationGroups(CSVfilePath, dictForCSV)
+
+        # Message for the user
+        slicer.util.delayDisplay("Files Saved")
+
+    def creationCSVFileForClassificationGroups(self, filePath, dictForCSV):
+        print "creationCSVFileForClassificationGroups"
+        file = open(filePath, 'w')
+        cw = csv.writer(file, delimiter=',')
+        cw.writerow(['VTK Files', 'Group'])
+        for key, value in dictForCSV.items():
+            for VTKPath in value:
+                cw.writerow([VTKPath, str(key)])
+        file.close()
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
     pass
