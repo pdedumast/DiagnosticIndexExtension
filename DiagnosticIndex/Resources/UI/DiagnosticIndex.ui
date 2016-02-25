@@ -7,13 +7,112 @@
     <x>0</x>
     <y>0</y>
     <width>821</width>
-    <height>896</height>
+    <height>1279</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <widget class="ctkCollapsibleButton" name="CollapsibleButton_creationCSVFile">
+     <property name="text">
+      <string>Creation of CSV File containing Classification Groups</string>
+     </property>
+     <property name="contentsFrameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_4">
+      <item>
+       <widget class="QGroupBox" name="groupBox_addingGroup">
+        <property name="title">
+         <string>Adding Groups</string>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_6">
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout__choiceGroup">
+           <item>
+            <widget class="QLabel" name="label_group">
+             <property name="text">
+              <string>Group</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSpinBox" name="spinBox_group"/>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="ctkDirectoryButton" name="DirectoryButton_creationCSVFile"/>
+         </item>
+         <item>
+          <widget class="QStackedWidget" name="stackedWidget_manageGroup">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="currentIndex">
+            <number>1</number>
+           </property>
+           <widget class="QWidget" name="page_manageLastGroup">
+            <layout class="QHBoxLayout" name="horizontalLayout_3">
+             <item>
+              <widget class="QPushButton" name="pushButton_addGroup">
+               <property name="text">
+                <string>Add Group</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+           <widget class="QWidget" name="page_modifyGroup">
+            <layout class="QHBoxLayout" name="horizontalLayout_2">
+             <item>
+              <widget class="QPushButton" name="pushButton_removeGroup">
+               <property name="text">
+                <string>Remove Group</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="pushButton_modifyGroup">
+               <property name="text">
+                <string>Modify Group</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QGroupBox" name="groupBox_exportCSVFile">
+        <property name="title">
+         <string>Export CSV File</string>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_5">
+         <item>
+          <widget class="ctkDirectoryButton" name="DirectoryButton_exportCSVFile"/>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pushButton_exportCSVfile">
+           <property name="text">
+            <string>Export</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
    <item>
     <widget class="ctkCollapsibleButton" name="CollapsibleButton_SelectClassificationGroups">
      <property name="text">
@@ -23,45 +122,6 @@
       <enum>QFrame::StyledPanel</enum>
      </property>
      <layout class="QGridLayout" name="gridLayout">
-      <item row="1" column="0">
-       <widget class="QWidget" name="widget_existingData" native="true">
-        <layout class="QHBoxLayout" name="horizontalLayout">
-         <item>
-          <widget class="QLabel" name="label_existingData">
-           <property name="text">
-            <string>Existing Data:</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="ctkPathLineEdit" name="PathLineEdit_existingData"/>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item row="4" column="0">
-       <widget class="QGroupBox" name="groupBox_previewClassificationGourps">
-        <property name="title">
-         <string>Preview of Classification Groups</string>
-        </property>
-        <layout class="QGridLayout" name="gridLayout_5">
-         <item row="0" column="0">
-          <widget class="QPushButton" name="pushButton_previewGroups">
-           <property name="text">
-            <string>Preview</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0">
-          <widget class="qMRMLTreeView" name="MRMLTreeView_classificationGroups">
-           <property name="sceneModelType">
-            <string>ModelHierarchy</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
       <item row="3" column="0">
        <widget class="QWidget" name="widget_previewGroups" native="true">
         <layout class="QGridLayout" name="gridLayout_3">
@@ -165,6 +225,45 @@
             </widget>
            </item>
           </layout>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QGroupBox" name="groupBox_previewClassificationGourps">
+        <property name="title">
+         <string>Preview of Classification Groups</string>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_5">
+         <item row="0" column="0">
+          <widget class="QPushButton" name="pushButton_previewGroups">
+           <property name="text">
+            <string>Preview</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="qMRMLTreeView" name="MRMLTreeView_classificationGroups">
+           <property name="sceneModelType">
+            <string>ModelHierarchy</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QWidget" name="widget_existingData" native="true">
+        <layout class="QHBoxLayout" name="horizontalLayout">
+         <item>
+          <widget class="QLabel" name="label_existingData">
+           <property name="text">
+            <string>Existing Data:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="ctkPathLineEdit" name="PathLineEdit_existingData"/>
          </item>
         </layout>
        </widget>

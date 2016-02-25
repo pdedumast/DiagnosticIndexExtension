@@ -54,6 +54,16 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.layout.addWidget(widget)
 
         #     global variables of the Interface:
+        #          first tab:
+        self.spinBox_group = self.logic.get('spinBox_group')
+        self.directoryButton_creationCSVFile = self.logic.get('DirectoryButton_creationCSVFile')
+        self.stackedWidget_manageGroup = self.logic.get('stackedWidget_manageGroup')
+        self.pushButton_addGroup = self.logic.get('pushButton_addGroup')
+        self.pushButton_removeGroup = self.logic.get('pushButton_removeGroup')
+        self.pushButton_modifyGroup = self.logic.get('pushButton_modifyGroup')
+        self.directoryButton_exportCSVFile = self.logic.get('DirectoryButton_exportCSVFile')
+        self.pushButton_exportCSVfile = self.logic.get('pushButton_exportCSVfile')
+        #          second tab:
         self.pathLineEdit_existingData = self.logic.get('PathLineEdit_existingData')
         self.pathLineEdit_NewGroups = self.logic.get('PathLineEdit_NewGroups')
         self.pathLineEdit_IncreaseExistingData = self.logic.get('PathLineEdit_IncreaseExistingData')
@@ -70,7 +80,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
         # Widget Configuration
 
-        #     disable/enable
+        #     disable/enable and hide/show widget
         self.spinBox_healthyGroup.setDisabled(True)
         self.pushButton_previewGroups.setDisabled(True)
         self.pathLineEdit_IncreaseExistingData.setDisabled(True)
