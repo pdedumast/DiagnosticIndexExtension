@@ -54,6 +54,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.layout.addWidget(widget)
 
         #     global variables of the Interface:
+        #          Tab: Select Classification Groups
+        self.collapsibleButton_SelectClassificationGroups = self.logic.get('CollapsibleButton_SelectClassificationGroups')
         self.pathLineEdit_existingData = self.logic.get('PathLineEdit_existingData')
         self.pathLineEdit_NewGroups = self.logic.get('PathLineEdit_NewGroups')
         self.pathLineEdit_IncreaseExistingData = self.logic.get('PathLineEdit_IncreaseExistingData')
@@ -67,6 +69,10 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.MRMLTreeView_classificationGroups = self.logic.get('MRMLTreeView_classificationGroups')
         self.directoryButton_exportNewClassification = self.logic.get('DirectoryButton_exportNewClassification')
         self.pushButton_exportNewClassification = self.logic.get('pushButton_exportNewClassification')
+        #          Tab: Select Input Data
+        self.collapsibleButton_selectInputData = self.logic.get('CollapsibleButton_selectInputData')
+        #          Tab: Result / Analysis
+        self.collapsibleButton_Result = self.logic.get('CollapsibleButton_Result')
 
         # Widget Configuration
 
@@ -109,6 +115,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         # ------------------------------------------------------------------------------------
         #                                   CONNECTIONS
         # ------------------------------------------------------------------------------------
+        #          Tab: Select Classification Groups
+        self.collapsibleButton_SelectClassificationGroups.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_SelectClassificationGroups))
         self.pathLineEdit_existingData.connect('currentPathChanged(const QString)', self.onExistingData)
         self.pathLineEdit_NewGroups.connect('currentPathChanged(const QString)', self.onNewGroups)
         self.pathLineEdit_IncreaseExistingData.connect('currentPathChanged(const QString)', self.onIncreaseExistingData)
@@ -117,6 +125,10 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_compute.connect('clicked()', self.onComputeNewClassification)
         self.pushButton_exportNewClassification.connect('clicked()', lambda: self.logic.onExportNewClassification(self.directoryButton_exportNewClassification, self.dictGroups))
         self.pushButton_previewGroups.connect('clicked()', self.onPreviewClassificationGroup)
+        #          Tab: Select Input Data
+        self.collapsibleButton_selectInputData.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_selectInputData))
+        #          Tab: Result / Analysis
+        self.collapsibleButton_Result.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_Result))
 
         slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onCloseScene)
 
@@ -134,6 +146,15 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     def onCloseScene(self, obj, event):
         #TODO
         pass
+
+    # Only one tab can be display at the same time:
+    #   When one tab is opened all the other tabs are closed
+    def onSelectedCollapsibleButtonOpen(self, selectedCollapsibleButton):
+        if selectedCollapsibleButton.isChecked():
+            collapsibleButtonList = [self.collapsibleButton_SelectClassificationGroups, self.collapsibleButton_selectInputData ,self.collapsibleButton_Result]
+            for collapsibleButton in collapsibleButtonList:
+                collapsibleButton.setChecked(False)
+            selectedCollapsibleButton.setChecked(True)
 
     def onExistingData(self):
         print "------Existing Data PathLine------"
