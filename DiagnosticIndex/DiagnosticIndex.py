@@ -130,6 +130,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         #     First Tab: Creation of CSV File containing Classification Groups
         self.spinBox_group.connect('valueChanged(int)', self.onManageGroup)
         self.pushButton_addGroup.connect('clicked()', self.onAddGroupForCreationCSVFile)
+        self.pushButton_removeGroup.connect('clicked()', self.onRemoveGroupForCreationCSVFile)
 
         #     Second Tab: Select Classification Groups
         self.pathLineEdit_existingData.connect('currentPathChanged(const QString)', self.onExistingData)
@@ -190,6 +191,21 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
         # Message for the user
         slicer.util.delayDisplay("Group Added")
+
+    def onRemoveGroupForCreationCSVFile(self):
+        # Remove the paths of vtk files to the dictionary
+        self.logic.removeGroupToDictionary(self.dictCSVFile, self.directoryList, self.spinBox_group.value)
+
+        # Decrement of the maximum of the spinbox
+        self.spinBox_group.blockSignals(True)
+        self.spinBox_group.setMaximum(self.spinBox_group.maximum - 1)
+        self.spinBox_group.blockSignals(False)
+
+        # Change the buttons "remove group" and "modify group" in "add group"
+        self.stackedWidget_manageGroup.setCurrentIndex(0)
+
+        # Message for the user
+        slicer.util.delayDisplay("Group removed")
 
     def onExistingData(self):
         print "------Existing Data PathLine------"
@@ -759,6 +775,13 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
 
         # Add the path of the directory
         directoryList.insert((group - 1), directory)
+
+    def removeGroupToDictionary(self, dictCSVFile, directoryList, group):
+        # Remove the group from the dictionary
+        dictCSVFile.pop(group, None)
+
+        # Remove the path of the directory
+        directoryList.pop(group - 1)
 
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
