@@ -132,6 +132,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_addGroup.connect('clicked()', self.onAddGroupForCreationCSVFile)
         self.pushButton_removeGroup.connect('clicked()', self.onRemoveGroupForCreationCSVFile)
         self.pushButton_modifyGroup.connect('clicked()', self.onModifyGroupForCreationCSVFile)
+        self.pushButton_exportCSVfile.connect('clicked()', self.onExportForCreationCSVFile)
 
         #     Second Tab: Select Classification Groups
         self.pathLineEdit_existingData.connect('currentPathChanged(const QString)', self.onExistingData)
@@ -224,6 +225,39 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
         # Message for the user
         slicer.util.delayDisplay("Group modified")
+
+    def onExportForCreationCSVFile(self):
+        # Path of the csv file
+        directory = self.directoryButton_exportCSVFile.directory.encode('utf-8')
+        filepath = directory + '/VTKFilesToCreateClassificationGroups.csv'
+
+        # Message if the csv fil already exists
+        messageBox = ctk.ctkMessageBox()
+        messageBox.setWindowTitle(' /!\ WARNING /!\ ')
+        messageBox.setIcon(messageBox.Warning)
+        if os.path.exists(filepath):
+            messageBox.setText('File ' + filepath + ' already exists!')
+            messageBox.setInformativeText('Do you want to replace it ?')
+            messageBox.setStandardButtons( messageBox.No | messageBox.Yes)
+            choice = messageBox.exec_()
+            if choice == messageBox.No:
+                return
+
+        # Creation of the CSV File
+        self.logic.creationCSVFileForClassificationGroups(filepath, self.dictCSVFile)
+
+        # Inisalization of the first tab
+        self.spinBox_group.setMaximum(1)
+        self.spinBox_group.setValue(1)
+        self.stackedWidget_manageGroup.setCurrentIndex(0)
+        self.directoryButton_creationCSVFile.directory = qt.QDir.homePath() + '/Desktop'
+        self.directoryButton_exportCSVFile.directory = qt.QDir.homePath() + '/Desktop'
+
+        # Initialization of:
+        #     - the dictionary containing all the paths of the vtk groups
+        #     - the list containing all the paths of the different directories
+        self.directoryList = list()
+        self.dictCSVFile = dict()
 
     def onExistingData(self):
         print "------Existing Data PathLine------"
