@@ -38,6 +38,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.logic = DiagnosticIndexLogic(self)
         self.dictVTKFiles = dict()
         self.dictGroups = dict()
+        self.dictCSVFile = dict()
+        self.directoryList = list()
 
         # Interface
         loader = qt.QUiLoader()
@@ -89,6 +91,12 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_compute.setDisabled(True)
         self.directoryButton_exportNewClassification.hide()
         self.pushButton_exportNewClassification.hide()
+        self.stackedWidget_manageGroup.setCurrentIndex(0)
+
+        #     spinbox configuration
+        self.spinBox_group.setMinimum(1)
+        self.spinBox_group.setMaximum(1)
+        self.spinBox_group.setValue(1)
 
         #     tree view configuration
         headerTreeView = self.MRMLTreeView_classificationGroups.header()
@@ -119,6 +127,11 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         # ------------------------------------------------------------------------------------
         #                                   CONNECTIONS
         # ------------------------------------------------------------------------------------
+        #     First Tab: Creation of CSV File containing Classification Groups
+        self.spinBox_group.connect('valueChanged(int)', self.onManageGroup)
+        self.pushButton_addGroup.connect('clicked()', self.onAddGroupForCreationCSVFile)
+
+        #     Second Tab: Select Classification Groups
         self.pathLineEdit_existingData.connect('currentPathChanged(const QString)', self.onExistingData)
         self.pathLineEdit_NewGroups.connect('currentPathChanged(const QString)', self.onNewGroups)
         self.pathLineEdit_IncreaseExistingData.connect('currentPathChanged(const QString)', self.onIncreaseExistingData)
@@ -144,6 +157,39 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     def onCloseScene(self, obj, event):
         #TODO
         pass
+
+    def onManageGroup(self):
+        if self.spinBox_group.maximum == self.spinBox_group.value:
+            self.stackedWidget_manageGroup.setCurrentIndex(0)
+        else:
+            self.stackedWidget_manageGroup.setCurrentIndex(1)
+            if (self.spinBox_group.maximum - 1) == self.spinBox_group.value:
+                self.pushButton_removeGroup.show()
+            else:
+                self.pushButton_removeGroup.hide()
+            # Update the path of the directory button
+            if len(self.directoryList) > 0:
+                self.directoryButton_creationCSVFile.directory = self.directoryList[self.spinBox_group.value - 1]
+
+    def onAddGroupForCreationCSVFile(self):
+        # Error message
+        directory = self.directoryButton_creationCSVFile.directory.encode('utf-8')
+        if directory in self.directoryList:
+            index = self.directoryList.index(directory) + 1
+            slicer.util.errorDisplay('Path of directory already used for the group ' + str(index))
+            return
+
+        # Add the paths of vtk files to the dictionary
+        self.logic.addGroupToDictionary(self.dictCSVFile, directory, self.directoryList, self.spinBox_group.value)
+
+        # Increment of the number of the group in the spinbox
+        self.spinBox_group.blockSignals(True)
+        self.spinBox_group.setMaximum(self.spinBox_group.value + 1)
+        self.spinBox_group.setValue(self.spinBox_group.value + 1)
+        self.spinBox_group.blockSignals(False)
+
+        # Message for the user
+        slicer.util.delayDisplay("Group Added")
 
     def onExistingData(self):
         print "------Existing Data PathLine------"
@@ -381,7 +427,6 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         #     value = dictVTKFiles.get(i, None)
         #     print "Groupe: " + str(i)
         #     print "VTK Files: " + str(value)
-
 
         # Set the Maximum value of spinBox_healthyGroup at the max groups possible
         self.interface.spinBox_healthyGroup.setMaximum(len(dictVTKFiles))
@@ -702,6 +747,19 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
             for VTKPath in value:
                 cw.writerow([VTKPath, str(key)])
         file.close()
+
+    def addGroupToDictionary(self, dictCSVFile, directory, directoryList, group):
+        # Fill a dictionary which contains the vtk files for the classification groups sorted by group
+        valueList = list()
+        for file in os.listdir(directory):
+            if file.endswith(".vtk"):
+                filepath = directory + '/' + file
+                valueList.append(filepath)
+        dictCSVFile[group] = valueList
+
+        # Add the path of the directory
+        directoryList.insert((group - 1), directory)
+
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
     pass
