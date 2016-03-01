@@ -131,6 +131,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.spinBox_group.connect('valueChanged(int)', self.onManageGroup)
         self.pushButton_addGroup.connect('clicked()', self.onAddGroupForCreationCSVFile)
         self.pushButton_removeGroup.connect('clicked()', self.onRemoveGroupForCreationCSVFile)
+        self.pushButton_modifyGroup.connect('clicked()', self.onModifyGroupForCreationCSVFile)
 
         #     Second Tab: Select Classification Groups
         self.pathLineEdit_existingData.connect('currentPathChanged(const QString)', self.onExistingData)
@@ -206,6 +207,23 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
         # Message for the user
         slicer.util.delayDisplay("Group removed")
+
+    def onModifyGroupForCreationCSVFile(self):
+        # Error message
+        directory = self.directoryButton_creationCSVFile.directory.encode('utf-8')
+        if directory in self.directoryList:
+            index = self.directoryList.index(directory) + 1
+            slicer.util.errorDisplay('Path of directory already used for the group ' + str(index))
+            return
+
+        # Remove the paths of vtk files to the dictionary
+        self.logic.removeGroupToDictionary(self.dictCSVFile, self.directoryList, self.spinBox_group.value)
+
+        # Add the paths of vtk files to the dictionary
+        self.logic.addGroupToDictionary(self.dictCSVFile, directory, self.directoryList, self.spinBox_group.value)
+
+        # Message for the user
+        slicer.util.delayDisplay("Group modified")
 
     def onExistingData(self):
         print "------Existing Data PathLine------"
