@@ -71,6 +71,9 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_exportNewClassification = self.logic.get('pushButton_exportNewClassification')
         #          Tab: Select Input Data
         self.collapsibleButton_selectInputData = self.logic.get('CollapsibleButton_selectInputData')
+        self.MRMLNodeComboBox_VTKFile = self.logic.get('MRMLNodeComboBox_VTKFile')
+        self.checkBox_fileInGroups = self.logic.get('checkBox_fileInGroups')
+        self.pushButton_applyTMJtype = self.logic.get('pushButton_applyTMJtype')
         #          Tab: Result / Analysis
         self.collapsibleButton_Result = self.logic.get('CollapsibleButton_Result')
 
@@ -85,6 +88,10 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_compute.setDisabled(True)
         self.directoryButton_exportNewClassification.hide()
         self.pushButton_exportNewClassification.hide()
+        self.checkBox_fileInGroups.setDisabled(True)
+
+        #     configuration of qMRMLNodeComboBox
+        self.MRMLNodeComboBox_VTKFile.setMRMLScene(slicer.mrmlScene)
 
         #     tree view configuration
         headerTreeView = self.MRMLTreeView_classificationGroups.header()
@@ -127,9 +134,11 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_previewGroups.connect('clicked()', self.onPreviewClassificationGroup)
         #          Tab: Select Input Data
         self.collapsibleButton_selectInputData.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_selectInputData))
+        self.MRMLNodeComboBox_VTKFile.connect('currentNodeChanged(vtkMRMLNode*)', self.onEnableOption)
+        self.checkBox_fileInGroups.connect('clicked()', self.onCheckFileInGroups)
+        self.pushButton_applyTMJtype.connect('clicked()', self.onComputeTMJtype)
         #          Tab: Result / Analysis
         self.collapsibleButton_Result.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_Result))
-
         slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onCloseScene)
 
     # function called each time that the user "enter" in Diagnostic Index interface
@@ -338,6 +347,54 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         threeDWidget = layoutManager.threeDWidget(0)
         threeDView = threeDWidget.threeDView()
         threeDView.resetFocalPoint()
+
+    def onEnableOption(self):
+        currentNode = self.MRMLNodeComboBox_VTKFile.currentNode()
+        if currentNode == None:
+            self.checkBox_fileInGroups.setDisabled(True)
+        elif self.pathLineEdit_NewGroups.currentPath or self.pathLineEdit_IncreaseExistingData.currentPath:
+            self.checkBox_fileInGroups.setEnabled(True)
+
+        # Check if the selected file is in the groups used to create the classification groups
+        self.onCheckFileInGroups()
+
+    def onCheckFileInGroups(self):
+        # Check if the selected file is in the groups used to create the classification groups
+        if self.checkBox_fileInGroups.isChecked():
+            node = self.MRMLNodeComboBox_VTKFile.currentNode()
+            if not node == None:
+                vtkfileToFind = node.GetName() + '.vtk'
+                find = self.logic.actionOnDictionary(self.dictVTKFiles, vtkfileToFind, None, 'find')
+                if find == False:
+                    slicer.util.errorDisplay('The selected file is not a file use to create the Classification Groups!')
+                    self.checkBox_fileInGroups.setChecked(False)
+
+    def onComputeTMJtype(self):
+        print "------Compute the TMJ Type of a patient------"
+        # If the selected file is in the groups used to create the classification groups
+        if self.checkBox_fileInGroups.isChecked():
+            #      Remove the file in the dictionary used to compute the classification groups
+            listSaveVTKFiles = list()
+            vtkfileToRemove = self.MRMLNodeComboBox_VTKFile.currentNode().GetName() + '.vtk'
+            listSaveVTKFiles = self.logic.actionOnDictionary(self.dictVTKFiles, vtkfileToRemove, listSaveVTKFiles, 'remove')
+
+            #      Copy the Classification Groups
+            dictGroupsTemp = dict()
+            dictGroupsTemp = self.dictGroups
+            self.dictGroups = dict()
+
+            #      Re-compute the new classification
+            self.onComputeNewClassification()
+
+        # Define the TMJ type of a patient
+        # TODO: call the CLI to define the TMJ type of a patient
+
+        # If the selected file is in the groups used to create the classification groups
+        if self.checkBox_fileInGroups.isChecked():
+            #      Add the file previously removed to the dictionary used to create the classification groups
+            self.logic.actionOnDictionary(self.dictVTKFiles, vtkfileToRemove, listSaveVTKFiles, 'add')
+            #      Recovery the Classification Groups previously saved
+            self.dictGroups = dictGroupsTemp
 
 # ------------------------------------------------------------------------------------
 #                                   ALGORITHM
@@ -713,6 +770,28 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
             for VTKPath in value:
                 cw.writerow([VTKPath, str(key)])
         file.close()
+
+    def actionOnDictionary(self, dict, file, listSaveVTKFiles, action):
+        # Remove vtkfile to the dictionary dict and return the key if it was found or None if it's not
+        if action == 'remove' or action == 'find':
+            if not file == None:
+                for key, value in dict.items():
+                    for vtkFile in value:
+                        filename = os.path.basename(vtkFile)
+                        if filename == file:
+                            if action == 'remove':
+                                value.remove(vtkFile)
+                                listSaveVTKFiles.append(key)
+                                listSaveVTKFiles.append(vtkFile)
+                                return listSaveVTKFiles
+                            return True
+            return False
+
+        # Add vtkfile to the dictionary dict at the given key
+        if action == 'add':
+            if not listSaveVTKFiles == None and not file == None:
+                value = dict.get(listSaveVTKFiles[0], None)
+                value.append(listSaveVTKFiles[1])
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
     pass

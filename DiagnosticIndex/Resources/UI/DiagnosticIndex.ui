@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>821</width>
-    <height>793</height>
+    <height>788</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -188,10 +188,31 @@
      </property>
      <layout class="QGridLayout" name="gridLayout_4">
       <item row="0" column="2">
-       <widget class="qMRMLNodeComboBox" name="MRMLNodeComboBox_VTKFile"/>
+       <widget class="qMRMLNodeComboBox" name="MRMLNodeComboBox_VTKFile">
+        <property name="nodeTypes">
+         <stringlist>
+          <string>vtkMRMLModelNode</string>
+         </stringlist>
+        </property>
+        <property name="showHidden">
+         <bool>false</bool>
+        </property>
+        <property name="noneEnabled">
+         <bool>true</bool>
+        </property>
+        <property name="addEnabled">
+         <bool>false</bool>
+        </property>
+        <property name="removeEnabled">
+         <bool>false</bool>
+        </property>
+        <property name="selectNodeUponCreation">
+         <bool>false</bool>
+        </property>
+       </widget>
       </item>
       <item row="4" column="2">
-       <widget class="QPushButton" name="pushButton_applyOAIndex">
+       <widget class="QPushButton" name="pushButton_applyTMJtype">
         <property name="text">
          <string>Apply</string>
         </property>
@@ -227,7 +248,7 @@
      <zorder>PathLineEdit_CSVFile</zorder>
      <zorder>checkBox_fileInGroups</zorder>
      <zorder>MRMLNodeComboBox_VTKFile</zorder>
-     <zorder>pushButton_applyOAIndex</zorder>
+     <zorder>pushButton_applyTMJtype</zorder>
     </widget>
    </item>
    <item>
