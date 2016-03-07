@@ -332,16 +332,18 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             for i in range(3,end):
                 model = list.GetItemAsObject(i)
                 disp = model.GetDisplayNode()
-                if self.spinBox_healthyGroup.value == (i - 2):
-                    disp.SetColor(1, 1, 1)
-                    disp.VisibilityOn()
-                else:
-                    disp.SetColor(1, 0, 0)
-                    if i == 3:
-                        disp.VisibilityOn()
-                    else:
-                        disp.VisibilityOff()
-                disp.SetOpacity(0.8)
+                for group in self.dictGroups.keys():
+                    filename = self.dictGroups.get(group, None)
+                    if os.path.splitext(os.path.basename(filename[0]))[0] == model.GetName():
+                        if self.spinBox_healthyGroup.value == group:
+                            disp.SetColor(1, 1, 1)
+                            disp.VisibilityOn()
+                        else:
+                            disp.SetColor(1, 0, 0)
+                            disp.VisibilityOff()
+                        disp.SetOpacity(0.8)
+                        break
+                    disp.VisibilityOff()
         # Center the 3D view of the scene
         layoutManager = slicer.app.layoutManager()
         threeDWidget = layoutManager.threeDWidget(0)
