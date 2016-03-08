@@ -38,6 +38,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.logic = DiagnosticIndexLogic(self)
         self.dictVTKFiles = dict()
         self.dictGroups = dict()
+        self.dictCSVFile = dict()
+        self.directoryList = list()
 
         # Interface
         loader = qt.QUiLoader()
@@ -54,6 +56,16 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.layout.addWidget(widget)
 
         #     global variables of the Interface:
+        #          Tab: Creation of CSV File for Classification Groups
+        self.collapsibleButton_creationCSVFile = self.logic.get('CollapsibleButton_creationCSVFile')
+        self.spinBox_group = self.logic.get('spinBox_group')
+        self.directoryButton_creationCSVFile = self.logic.get('DirectoryButton_creationCSVFile')
+        self.stackedWidget_manageGroup = self.logic.get('stackedWidget_manageGroup')
+        self.pushButton_addGroup = self.logic.get('pushButton_addGroup')
+        self.pushButton_removeGroup = self.logic.get('pushButton_removeGroup')
+        self.pushButton_modifyGroup = self.logic.get('pushButton_modifyGroup')
+        self.directoryButton_exportCSVFile = self.logic.get('DirectoryButton_exportCSVFile')
+        self.pushButton_exportCSVfile = self.logic.get('pushButton_exportCSVfile')
         #          Tab: Select Classification Groups
         self.collapsibleButton_SelectClassificationGroups = self.logic.get('CollapsibleButton_SelectClassificationGroups')
         self.pathLineEdit_existingData = self.logic.get('PathLineEdit_existingData')
@@ -79,7 +91,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
         # Widget Configuration
 
-        #     disable/enable
+        #     disable/enable and hide/show widget
         self.spinBox_healthyGroup.setDisabled(True)
         self.pushButton_previewGroups.setDisabled(True)
         self.pathLineEdit_IncreaseExistingData.setDisabled(True)
@@ -92,6 +104,14 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
         #     configuration of qMRMLNodeComboBox
         self.MRMLNodeComboBox_VTKFile.setMRMLScene(slicer.mrmlScene)
+
+        #     initialisation of the stackedWidget to display the button "add group"
+        self.stackedWidget_manageGroup.setCurrentIndex(0)
+
+        #     spinbox configuration
+        self.spinBox_group.setMinimum(1)
+        self.spinBox_group.setMaximum(1)
+        self.spinBox_group.setValue(1)
 
         #     tree view configuration
         headerTreeView = self.MRMLTreeView_classificationGroups.header()
@@ -122,6 +142,13 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         # ------------------------------------------------------------------------------------
         #                                   CONNECTIONS
         # ------------------------------------------------------------------------------------
+        #          Tab: Creation of CSV File for Classification Groups
+        self.collapsibleButton_creationCSVFile.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_creationCSVFile))
+        self.spinBox_group.connect('valueChanged(int)', self.onManageGroup)
+        self.pushButton_addGroup.connect('clicked()', self.onAddGroupForCreationCSVFile)
+        self.pushButton_removeGroup.connect('clicked()', self.onRemoveGroupForCreationCSVFile)
+        self.pushButton_modifyGroup.connect('clicked()', self.onModifyGroupForCreationCSVFile)
+        self.pushButton_exportCSVfile.connect('clicked()', self.onExportForCreationCSVFile)
         #          Tab: Select Classification Groups
         self.collapsibleButton_SelectClassificationGroups.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_SelectClassificationGroups))
         self.pathLineEdit_existingData.connect('currentPathChanged(const QString)', self.onExistingData)
@@ -160,10 +187,108 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     #   When one tab is opened all the other tabs are closed
     def onSelectedCollapsibleButtonOpen(self, selectedCollapsibleButton):
         if selectedCollapsibleButton.isChecked():
-            collapsibleButtonList = [self.collapsibleButton_SelectClassificationGroups, self.collapsibleButton_selectInputData ,self.collapsibleButton_Result]
+            collapsibleButtonList = [self.collapsibleButton_creationCSVFile, self.collapsibleButton_SelectClassificationGroups, self.collapsibleButton_selectInputData ,self.collapsibleButton_Result]
             for collapsibleButton in collapsibleButtonList:
                 collapsibleButton.setChecked(False)
             selectedCollapsibleButton.setChecked(True)
+
+    def onManageGroup(self):
+        if self.spinBox_group.maximum == self.spinBox_group.value:
+            self.stackedWidget_manageGroup.setCurrentIndex(0)
+        else:
+            self.stackedWidget_manageGroup.setCurrentIndex(1)
+            if (self.spinBox_group.maximum - 1) == self.spinBox_group.value:
+                self.pushButton_removeGroup.show()
+            else:
+                self.pushButton_removeGroup.hide()
+            # Update the path of the directory button
+            if len(self.directoryList) > 0:
+                self.directoryButton_creationCSVFile.directory = self.directoryList[self.spinBox_group.value - 1]
+
+    def onAddGroupForCreationCSVFile(self):
+        # Error message
+        directory = self.directoryButton_creationCSVFile.directory.encode('utf-8')
+        if directory in self.directoryList:
+            index = self.directoryList.index(directory) + 1
+            slicer.util.errorDisplay('Path of directory already used for the group ' + str(index))
+            return
+
+        # Add the paths of vtk files to the dictionary
+        self.logic.addGroupToDictionary(self.dictCSVFile, directory, self.directoryList, self.spinBox_group.value)
+
+        # Increment of the number of the group in the spinbox
+        self.spinBox_group.blockSignals(True)
+        self.spinBox_group.setMaximum(self.spinBox_group.value + 1)
+        self.spinBox_group.setValue(self.spinBox_group.value + 1)
+        self.spinBox_group.blockSignals(False)
+
+        # Message for the user
+        slicer.util.delayDisplay("Group Added")
+
+    def onRemoveGroupForCreationCSVFile(self):
+        # Remove the paths of vtk files to the dictionary
+        self.logic.removeGroupToDictionary(self.dictCSVFile, self.directoryList, self.spinBox_group.value)
+
+        # Decrement of the maximum of the spinbox
+        self.spinBox_group.blockSignals(True)
+        self.spinBox_group.setMaximum(self.spinBox_group.maximum - 1)
+        self.spinBox_group.blockSignals(False)
+
+        # Change the buttons "remove group" and "modify group" in "add group"
+        self.stackedWidget_manageGroup.setCurrentIndex(0)
+
+        # Message for the user
+        slicer.util.delayDisplay("Group removed")
+
+    def onModifyGroupForCreationCSVFile(self):
+        # Error message
+        directory = self.directoryButton_creationCSVFile.directory.encode('utf-8')
+        if directory in self.directoryList:
+            index = self.directoryList.index(directory) + 1
+            slicer.util.errorDisplay('Path of directory already used for the group ' + str(index))
+            return
+
+        # Remove the paths of vtk files to the dictionary
+        self.logic.removeGroupToDictionary(self.dictCSVFile, self.directoryList, self.spinBox_group.value)
+
+        # Add the paths of vtk files to the dictionary
+        self.logic.addGroupToDictionary(self.dictCSVFile, directory, self.directoryList, self.spinBox_group.value)
+
+        # Message for the user
+        slicer.util.delayDisplay("Group modified")
+
+    def onExportForCreationCSVFile(self):
+        # Path of the csv file
+        directory = self.directoryButton_exportCSVFile.directory.encode('utf-8')
+        filepath = directory + '/VTKFilesToCreateClassificationGroups.csv'
+
+        # Message if the csv fil already exists
+        messageBox = ctk.ctkMessageBox()
+        messageBox.setWindowTitle(' /!\ WARNING /!\ ')
+        messageBox.setIcon(messageBox.Warning)
+        if os.path.exists(filepath):
+            messageBox.setText('File ' + filepath + ' already exists!')
+            messageBox.setInformativeText('Do you want to replace it ?')
+            messageBox.setStandardButtons( messageBox.No | messageBox.Yes)
+            choice = messageBox.exec_()
+            if choice == messageBox.No:
+                return
+
+        # Creation of the CSV File
+        self.logic.creationCSVFileForClassificationGroups(filepath, self.dictCSVFile)
+
+        # Inisalization of the first tab
+        self.spinBox_group.setMaximum(1)
+        self.spinBox_group.setValue(1)
+        self.stackedWidget_manageGroup.setCurrentIndex(0)
+        self.directoryButton_creationCSVFile.directory = qt.QDir.homePath() + '/Desktop'
+        self.directoryButton_exportCSVFile.directory = qt.QDir.homePath() + '/Desktop'
+
+        # Initialization of:
+        #     - the dictionary containing all the paths of the vtk groups
+        #     - the list containing all the paths of the different directories
+        self.directoryList = list()
+        self.dictCSVFile = dict()
 
     def onExistingData(self):
         print "------Existing Data PathLine------"
@@ -422,6 +547,27 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                     return resulting_widget
             return None
 
+
+    def addGroupToDictionary(self, dictCSVFile, directory, directoryList, group):
+        # Fill a dictionary which contains the vtk files for the classification groups sorted by group
+        valueList = list()
+        for file in os.listdir(directory):
+            if file.endswith(".vtk"):
+                filepath = directory + '/' + file
+                valueList.append(filepath)
+        dictCSVFile[group] = valueList
+
+        # Add the path of the directory
+        directoryList.insert((group - 1), directory)
+
+    def removeGroupToDictionary(self, dictCSVFile, directoryList, group):
+        # Remove the group from the dictionary
+        dictCSVFile.pop(group, None)
+
+        # Remove the path of the directory
+        directoryList.pop(group - 1)
+
+
     def readCSVFile(self, filename):
         print "CSV FilePath: " + filename
         CSVreader = vtk.vtkDelimitedTextReader()
@@ -451,7 +597,6 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         #     value = dictVTKFiles.get(i, None)
         #     print "Groupe: " + str(i)
         #     print "VTK Files: " + str(value)
-
 
         # Set the Maximum value of spinBox_healthyGroup at the max groups possible
         self.interface.spinBox_healthyGroup.setMaximum(len(dictVTKFiles))
@@ -794,6 +939,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
             if not listSaveVTKFiles == None and not file == None:
                 value = dict.get(listSaveVTKFiles[0], None)
                 value.append(listSaveVTKFiles[1])
+
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
     pass
