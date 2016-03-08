@@ -40,6 +40,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.dictGroups = dict()
         self.dictCSVFile = dict()
         self.directoryList = list()
+        self.groupSelected = set()
 
         # Interface
         loader = qt.QUiLoader()
@@ -129,14 +130,15 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         headerTreeView.setResizeMode(sceneModel.opacityColumn,qt.QHeaderView.ResizeToContents)
 
         #     table configuration
-        self.tableWidget_VTKFile.setColumnCount(3)
-        self.tableWidget_VTKFile.setHorizontalHeaderLabels([' VTK files ', ' Group ', ' Visualization '])
+        self.tableWidget_VTKFile.setColumnCount(4)
+        self.tableWidget_VTKFile.setHorizontalHeaderLabels([' VTK files ', ' Group ', ' Visualization ', 'Color'])
         self.tableWidget_VTKFile.setColumnWidth(0, 200)
         horizontalHeader = self.tableWidget_VTKFile.horizontalHeader()
         horizontalHeader.setStretchLastSection(False)
         horizontalHeader.setResizeMode(0,qt.QHeaderView.Stretch)
         horizontalHeader.setResizeMode(1,qt.QHeaderView.ResizeToContents)
         horizontalHeader.setResizeMode(2,qt.QHeaderView.ResizeToContents)
+        horizontalHeader.setResizeMode(3,qt.QHeaderView.ResizeToContents)
         self.tableWidget_VTKFile.verticalHeader().setVisible(False)
 
         # ------------------------------------------------------------------------------------
@@ -166,6 +168,9 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_applyTMJtype.connect('clicked()', self.onComputeTMJtype)
         #          Tab: Result / Analysis
         self.collapsibleButton_Result.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_Result))
+        #          Tab: Result / Analysis
+        self.collapsibleButton_Result.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_Result))
+
         slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onCloseScene)
 
     # function called each time that the user "enter" in Diagnostic Index interface
@@ -347,6 +352,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_compute.setEnabled(True)
 
     def onSelectedVTKFileForPreview(self):
+        # Update the checkbox in the qtableWidget of each vtk file
         index = self.checkableComboBox_ChoiceOfGroup.currentIndex
         for row in range(0,self.tableWidget_VTKFile.rowCount):
              # group
@@ -364,9 +370,15 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                 item = self.checkableComboBox_ChoiceOfGroup.model().item(index, 0)
                 if item.checkState():
                     checkBox.setChecked(True)
+                    self.groupSelected.add(index + 1)
                 else:
                     checkBox.setChecked(False)
+                    self.groupSelected.discard(index + 1)
                 checkBox.blockSignals(False)
+
+        # Update the checkbox in the qtableWidget of each vtk file
+        colorTransferFunction = self.logic.creationColorTransfer(self.groupSelected)
+        self.updateColorForSPV(colorTransferFunction)
 
     def onGroupValueChanged(self):
         # Uptade the dictionary where the VTK files are sorted by groups
@@ -375,6 +387,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.onCheckBoxTableValueChanged()
 
     def onCheckBoxTableValueChanged(self):
+        self.groupSelected = set()
+        # Update the checkable comboBox which allow to select what groups the user wants to display in SPV
         self.checkableComboBox_ChoiceOfGroup.blockSignals(True)
         allcheck = True
         for cle, value in self.dictVTKFiles.items():
@@ -385,19 +399,49 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                     for row in range(0,self.tableWidget_VTKFile.rowCount):
                         qlabel = self.tableWidget_VTKFile.cellWidget(row, 0)
                         if qlabel.text == filename:
-                            # check the checkBox
+                            # check the checkBox in the table
                             widget = self.tableWidget_VTKFile.cellWidget(row, 2)
                             tuple = widget.children()
                             checkBox = tuple[1]
                             if not checkBox.checkState():
                                 allcheck = False
                                 item.setCheckState(0)
+                            else:
+                                self.groupSelected.add(cle)
                 if allcheck:
                     item.setCheckState(2)
             else:
                 item.setCheckState(0)
             allcheck = True
         self.checkableComboBox_ChoiceOfGroup.blockSignals(False)
+
+        # Update the color in the qtableWidget which will display in SPV
+        colorTransferFunction = self.logic.creationColorTransfer(self.groupSelected)
+        self.updateColorForSPV(colorTransferFunction)
+
+    def updateColorForSPV(self, colorTransferFunction):
+        # Update the color in the table associating at each groups
+        for row in range(0,self.tableWidget_VTKFile.rowCount):
+            # group
+            widget = self.tableWidget_VTKFile.cellWidget(row, 1)
+            tuple = widget.children()
+            comboBox = qt.QComboBox()
+            comboBox = tuple[1]
+            group = comboBox.currentIndex + 1
+
+            # checkbox
+            widget = self.tableWidget_VTKFile.cellWidget(row, 2)
+            tuple = widget.children()
+            checkBox = qt.QCheckBox()
+            checkBox = tuple[1]
+
+            if checkBox.isChecked():
+                # color
+                rgb = colorTransferFunction.GetColor(group)
+                widget = self.tableWidget_VTKFile.cellWidget(row, 3)
+                self.tableWidget_VTKFile.item(row,3).setBackground(qt.QColor(rgb[0]*255,rgb[1]*255,rgb[2]*255))
+            else:
+                self.tableWidget_VTKFile.item(row,3).setBackground(qt.QColor(255,255,255))
 
     def onPreviewVTKFiles(self):
         print "------Preview VTK Files------"
@@ -532,6 +576,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
     def __init__(self, interface):
         self.interface = interface
         self.table = vtk.vtkTable
+        self.colorBar = {'Point1': [0, 0, 1, 0], 'Point2': [0.5, 1, 1, 0], 'Point3': [1, 1, 0, 0]}
 
     # === Convenience python widget methods === #
     def get(self, objectName):
@@ -710,6 +755,11 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 widget.setLayout(layout)
                 table.setCellWidget(row, 2, widget)
                 checkBox.connect('stateChanged(int)', self.interface.onCheckBoxTableValueChanged)
+
+                # Column 3:
+                table.setItem(row, 3, qt.QTableWidgetItem())
+                table.item(row,3).setBackground(qt.QColor(255,255,255))
+
                 row = row + 1
 
     def onComboBoxTableValueChanged(self, dictVTKFiles, table):
@@ -734,6 +784,23 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                         newvalue = dictVTKFiles.get(group, None)
                         newvalue.append(path)
                         break
+
+    def creationColorTransfer(self, groupSelected):
+        # Creation of the color transfer function with the updated range
+        colorTransferFunction = vtk.vtkColorTransferFunction()
+        if len(groupSelected) > 0:
+            groupSelectedList = list(groupSelected)
+            rangeColorTransfer = [groupSelectedList[0], groupSelectedList[len(groupSelectedList) - 1]]
+            colorTransferFunction.AdjustRange(rangeColorTransfer)
+            for key, value in self.colorBar.items():
+                # postion on the current arrow
+                x = (groupSelectedList[len(groupSelectedList) - 1] - groupSelectedList[0]) * value[0] + groupSelectedList[0]
+                # color of the current arrow
+                r = value[1]
+                g = value[2]
+                b = value[3]
+                colorTransferFunction.AddRGBPoint(x,r,g,b)
+        return colorTransferFunction
 
     def deleteArray(self, key, value):
         for vtkFile in value:
