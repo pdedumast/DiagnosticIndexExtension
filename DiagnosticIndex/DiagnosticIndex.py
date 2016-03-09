@@ -67,21 +67,25 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_modifyGroup = self.logic.get('pushButton_modifyGroup')
         self.directoryButton_exportCSVFile = self.logic.get('DirectoryButton_exportCSVFile')
         self.pushButton_exportCSVfile = self.logic.get('pushButton_exportCSVfile')
-        #          Tab: Select Classification Groups
-        self.collapsibleButton_SelectClassificationGroups = self.logic.get('CollapsibleButton_SelectClassificationGroups')
-        self.pathLineEdit_existingData = self.logic.get('PathLineEdit_existingData')
+        #          Tab: Creation of New Classification Groups
+        self.collapsibleButton_creationClassificationGroups = self.logic.get('CollapsibleButton_creationClassificationGroups')
         self.pathLineEdit_NewGroups = self.logic.get('PathLineEdit_NewGroups')
         self.pathLineEdit_IncreaseExistingData = self.logic.get('PathLineEdit_IncreaseExistingData')
         self.collapsibleGroupBox_previewVTKFiles = self.logic.get('CollapsibleGroupBox_previewVTKFiles')
         self.checkableComboBox_ChoiceOfGroup = self.logic.get('CheckableComboBox_ChoiceOfGroup')
-        self.tableWidget_VTKFile = self.logic.get('tableWidget_VTKFile')
+        self.tableWidget_VTKFiles = self.logic.get('tableWidget_VTKFiles')
         self.pushButton_previewVTKFiles = self.logic.get('pushButton_previewVTKFiles')
         self.pushButton_compute = self.logic.get('pushButton_compute')
-        self.spinBox_healthyGroup = self.logic.get('spinBox_healthyGroup')
-        self.pushButton_previewGroups = self.logic.get('pushButton_previewGroups')
-        self.MRMLTreeView_classificationGroups = self.logic.get('MRMLTreeView_classificationGroups')
         self.directoryButton_exportNewClassification = self.logic.get('DirectoryButton_exportNewClassification')
         self.pushButton_exportNewClassification = self.logic.get('pushButton_exportNewClassification')
+        #          Tab: Selection Classification Groups
+        self.collapsibleButton_SelectClassificationGroups = self.logic.get('CollapsibleButton_SelectClassificationGroups')
+        self.pathLineEdit_selectionClassificationGroups = self.logic.get('PathLineEdit_selectionClassificationGroups')
+        self.spinBox_healthyGroup = self.logic.get('spinBox_healthyGroup')
+        #          Tab: Preview of Classification Groups
+        self.collapsibleButton_previewClassificationGroups = self.logic.get('CollapsibleButton_previewClassificationGroups')
+        self.pushButton_previewGroups = self.logic.get('pushButton_previewGroups')
+        self.MRMLTreeView_classificationGroups = self.logic.get('MRMLTreeView_classificationGroups')
         #          Tab: Select Input Data
         self.collapsibleButton_selectInputData = self.logic.get('CollapsibleButton_selectInputData')
         self.MRMLNodeComboBox_VTKFile = self.logic.get('MRMLNodeComboBox_VTKFile')
@@ -97,11 +101,13 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_previewGroups.setDisabled(True)
         self.pathLineEdit_IncreaseExistingData.setDisabled(True)
         self.pushButton_compute.setDisabled(True)
-        self.collapsibleGroupBox_previewVTKFiles.setDisabled(True)
         self.pushButton_compute.setDisabled(True)
-        self.directoryButton_exportNewClassification.hide()
-        self.pushButton_exportNewClassification.hide()
+        self.directoryButton_exportNewClassification.setDisabled(True)
+        self.pushButton_exportNewClassification.setDisabled(True)
         self.checkBox_fileInGroups.setDisabled(True)
+        self.checkableComboBox_ChoiceOfGroup.setDisabled(True)
+        self.tableWidget_VTKFiles.setDisabled(True)
+        self.pushButton_previewVTKFiles.setDisabled(True)
 
         #     configuration of qMRMLNodeComboBox
         self.MRMLNodeComboBox_VTKFile.setMRMLScene(slicer.mrmlScene)
@@ -130,16 +136,16 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         headerTreeView.setResizeMode(sceneModel.opacityColumn,qt.QHeaderView.ResizeToContents)
 
         #     table configuration
-        self.tableWidget_VTKFile.setColumnCount(4)
-        self.tableWidget_VTKFile.setHorizontalHeaderLabels([' VTK files ', ' Group ', ' Visualization ', 'Color'])
-        self.tableWidget_VTKFile.setColumnWidth(0, 200)
-        horizontalHeader = self.tableWidget_VTKFile.horizontalHeader()
+        self.tableWidget_VTKFiles.setColumnCount(4)
+        self.tableWidget_VTKFiles.setHorizontalHeaderLabels([' VTK files ', ' Group ', ' Visualization ', 'Color'])
+        self.tableWidget_VTKFiles.setColumnWidth(0, 200)
+        horizontalHeader = self.tableWidget_VTKFiles.horizontalHeader()
         horizontalHeader.setStretchLastSection(False)
         horizontalHeader.setResizeMode(0,qt.QHeaderView.Stretch)
         horizontalHeader.setResizeMode(1,qt.QHeaderView.ResizeToContents)
         horizontalHeader.setResizeMode(2,qt.QHeaderView.ResizeToContents)
         horizontalHeader.setResizeMode(3,qt.QHeaderView.ResizeToContents)
-        self.tableWidget_VTKFile.verticalHeader().setVisible(False)
+        self.tableWidget_VTKFiles.verticalHeader().setVisible(False)
 
         # ------------------------------------------------------------------------------------
         #                                   CONNECTIONS
@@ -151,23 +157,25 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_removeGroup.connect('clicked()', self.onRemoveGroupForCreationCSVFile)
         self.pushButton_modifyGroup.connect('clicked()', self.onModifyGroupForCreationCSVFile)
         self.pushButton_exportCSVfile.connect('clicked()', self.onExportForCreationCSVFile)
-        #          Tab: Select Classification Groups
-        self.collapsibleButton_SelectClassificationGroups.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_SelectClassificationGroups))
-        self.pathLineEdit_existingData.connect('currentPathChanged(const QString)', self.onExistingData)
+        #          Tab: Creation of New Classification Groups
+        self.collapsibleButton_creationClassificationGroups.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_creationClassificationGroups))
         self.pathLineEdit_NewGroups.connect('currentPathChanged(const QString)', self.onNewGroups)
         self.pathLineEdit_IncreaseExistingData.connect('currentPathChanged(const QString)', self.onIncreaseExistingData)
         self.checkableComboBox_ChoiceOfGroup.connect('checkedIndexesChanged()', self.onSelectedVTKFileForPreview)
         self.pushButton_previewVTKFiles.connect('clicked()', self.onPreviewVTKFiles)
         self.pushButton_compute.connect('clicked()', self.onComputeNewClassification)
-        self.pushButton_exportNewClassification.connect('clicked()', lambda: self.logic.onExportNewClassification(self.directoryButton_exportNewClassification, self.dictGroups))
+        self.pushButton_exportNewClassification.connect('clicked()', self.onExportNewClassificationGroups)
+        #          Tab: Selection of Classification Groups
+        self.collapsibleButton_SelectClassificationGroups.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_SelectClassificationGroups))
+        self.pathLineEdit_selectionClassificationGroups.connect('currentPathChanged(const QString)', self.onSelectionClassificationGroups)
+        #          Tab: Preview of Classification Groups
+        self.collapsibleButton_previewClassificationGroups.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_previewClassificationGroups))
         self.pushButton_previewGroups.connect('clicked()', self.onPreviewClassificationGroup)
         #          Tab: Select Input Data
         self.collapsibleButton_selectInputData.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_selectInputData))
         self.MRMLNodeComboBox_VTKFile.connect('currentNodeChanged(vtkMRMLNode*)', self.onEnableOption)
         self.checkBox_fileInGroups.connect('clicked()', self.onCheckFileInGroups)
         self.pushButton_applyTMJtype.connect('clicked()', self.onComputeTMJtype)
-        #          Tab: Result / Analysis
-        self.collapsibleButton_Result.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_Result))
         #          Tab: Result / Analysis
         self.collapsibleButton_Result.connect('clicked()', lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_Result))
 
@@ -192,10 +200,14 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     #   When one tab is opened all the other tabs are closed
     def onSelectedCollapsibleButtonOpen(self, selectedCollapsibleButton):
         if selectedCollapsibleButton.isChecked():
-            collapsibleButtonList = [self.collapsibleButton_creationCSVFile, self.collapsibleButton_SelectClassificationGroups, self.collapsibleButton_selectInputData ,self.collapsibleButton_Result]
+            collapsibleButtonList = [self.collapsibleButton_creationCSVFile, self.collapsibleButton_creationClassificationGroups, self.collapsibleButton_SelectClassificationGroups, self.collapsibleButton_previewClassificationGroups, self.collapsibleButton_selectInputData ,self.collapsibleButton_Result]
             for collapsibleButton in collapsibleButtonList:
                 collapsibleButton.setChecked(False)
             selectedCollapsibleButton.setChecked(True)
+
+    # ---------------------------------------------------- #
+    # Tab: Creation of CSV File for Classification Groups
+    # ---------------------------------------------------- #
 
     def onManageGroup(self):
         if self.spinBox_group.maximum == self.spinBox_group.value:
@@ -295,20 +307,12 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.directoryList = list()
         self.dictCSVFile = dict()
 
-    def onExistingData(self):
-        print "------Existing Data PathLine------"
+        # Load automatically the CSV file in the pathline in the tab "Creation of New Classification Groups"
+        self.pathLineEdit_NewGroups.setCurrentPath(filepath)
 
-        # Read CSV File:
-        self.logic.readCSVFile(self.pathLineEdit_existingData.currentPath)
-        self.logic.creationDictVTKFiles(self.dictGroups)
-
-        # check if there is one VTK Files for one group
-        self.logic.checkCSVFile(self.dictGroups)
-
-        # Enable/disable buttons
-        self.enabledButtons()
-        self.pathLineEdit_NewGroups.setDisabled(True)
-        self.pathLineEdit_IncreaseExistingData.setEnabled(True)
+    # ---------------------------------------------------- #
+    #     Tab: Creation of New Classification Groups
+    # ---------------------------------------------------- #
 
     def onNewGroups(self):
         print "------New Groups PathLine------"
@@ -317,18 +321,13 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.logic.creationDictVTKFiles(self.dictVTKFiles)
 
         # Update the option for the preview of the vtk files in Shape Population Viewer
-        self.logic.updateOptionPreviewVTKFiles(self.dictVTKFiles, self.checkableComboBox_ChoiceOfGroup, self.tableWidget_VTKFile)
+        self.logic.updateOptionPreviewVTKFiles(self.dictVTKFiles, self.checkableComboBox_ChoiceOfGroup, self.tableWidget_VTKFiles)
 
         # Enable/disable buttons
-        self.enabledButtons()
-        self.pathLineEdit_existingData.setDisabled(True)
-        self.collapsibleGroupBox_previewVTKFiles.setEnabled(True)
+        self.checkableComboBox_ChoiceOfGroup.setEnabled(True)
+        self.tableWidget_VTKFiles.setEnabled(True)
+        self.pushButton_previewVTKFiles.setEnabled(True)
         self.pushButton_compute.setEnabled(True)
-
-    def enabledButtons(self):
-        self.spinBox_healthyGroup.setEnabled(True)
-        self.pushButton_previewGroups.setEnabled(True)
-        self.MRMLTreeView_classificationGroups.setEnabled(True)
 
     def onIncreaseExistingData(self):
         print "------Increase Existing Data PathLine------"
@@ -336,7 +335,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         # Download the CSV file
         self.logic.readCSVFile(self.pathLineEdit_IncreaseExistingData.currentPath)
 
-        if self.pathLineEdit_existingData.currentPath:
+        if self.pathLineEdit_selectionClassificationGroups.currentPath:
             self.dictVTKFiles = self.dictGroups
             self.dictGroups = dict()
             self.logic.creationDictVTKFiles(self.dictVTKFiles)
@@ -345,25 +344,27 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             slicer.util.errorDisplay('No Existing Data to increase')
 
         # Update the option for the preview of the vtk files in Shape Population Viewer
-        self.logic.updateOptionPreviewVTKFiles(self.dictVTKFiles, self.checkableComboBox_ChoiceOfGroup, self.tableWidget_VTKFile)
+        self.logic.updateOptionPreviewVTKFiles(self.dictVTKFiles, self.checkableComboBox_ChoiceOfGroup, self.tableWidget_VTKFiles)
 
         # Enable/disable buttons
-        self.collapsibleGroupBox_previewVTKFiles.setEnabled(True)
+        self.checkableComboBox_ChoiceOfGroup.setEnabled(True)
+        self.tableWidget_VTKFiles.setEnabled(True)
+        self.pushButton_previewVTKFiles.setEnabled(True)
         self.pushButton_compute.setEnabled(True)
 
     def onSelectedVTKFileForPreview(self):
         # Update the checkbox in the qtableWidget of each vtk file
         index = self.checkableComboBox_ChoiceOfGroup.currentIndex
-        for row in range(0,self.tableWidget_VTKFile.rowCount):
+        for row in range(0,self.tableWidget_VTKFiles.rowCount):
              # group
-            widget = self.tableWidget_VTKFile.cellWidget(row, 1)
+            widget = self.tableWidget_VTKFiles.cellWidget(row, 1)
             tuple = widget.children()
             comboBox = qt.QComboBox()
             comboBox = tuple[1]
             group = comboBox.currentIndex + 1
             if group == (index + 1):
                 # check the checkBox
-                widget = self.tableWidget_VTKFile.cellWidget(row, 2)
+                widget = self.tableWidget_VTKFiles.cellWidget(row, 2)
                 tuple = widget.children()
                 checkBox = tuple[1]
                 checkBox.blockSignals(True)
@@ -382,7 +383,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
     def onGroupValueChanged(self):
         # Uptade the dictionary where the VTK files are sorted by groups
-        self.logic.onComboBoxTableValueChanged(self.dictVTKFiles, self.tableWidget_VTKFile)
+        self.logic.onComboBoxTableValueChanged(self.dictVTKFiles, self.tableWidget_VTKFiles)
         # Update the checkable combobox
         self.onCheckBoxTableValueChanged()
 
@@ -396,11 +397,11 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             if not value == []:
                 for vtkFile in value:
                     filename = os.path.basename(vtkFile)
-                    for row in range(0,self.tableWidget_VTKFile.rowCount):
-                        qlabel = self.tableWidget_VTKFile.cellWidget(row, 0)
+                    for row in range(0,self.tableWidget_VTKFiles.rowCount):
+                        qlabel = self.tableWidget_VTKFiles.cellWidget(row, 0)
                         if qlabel.text == filename:
                             # check the checkBox in the table
-                            widget = self.tableWidget_VTKFile.cellWidget(row, 2)
+                            widget = self.tableWidget_VTKFiles.cellWidget(row, 2)
                             tuple = widget.children()
                             checkBox = tuple[1]
                             if not checkBox.checkState():
@@ -421,16 +422,16 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
     def updateColorForSPV(self, colorTransferFunction):
         # Update the color in the table associating at each groups
-        for row in range(0,self.tableWidget_VTKFile.rowCount):
+        for row in range(0,self.tableWidget_VTKFiles.rowCount):
             # group
-            widget = self.tableWidget_VTKFile.cellWidget(row, 1)
+            widget = self.tableWidget_VTKFiles.cellWidget(row, 1)
             tuple = widget.children()
             comboBox = qt.QComboBox()
             comboBox = tuple[1]
             group = comboBox.currentIndex + 1
 
             # checkbox
-            widget = self.tableWidget_VTKFile.cellWidget(row, 2)
+            widget = self.tableWidget_VTKFiles.cellWidget(row, 2)
             tuple = widget.children()
             checkBox = qt.QCheckBox()
             checkBox = tuple[1]
@@ -438,20 +439,20 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             if checkBox.isChecked():
                 # color
                 rgb = colorTransferFunction.GetColor(group)
-                widget = self.tableWidget_VTKFile.cellWidget(row, 3)
-                self.tableWidget_VTKFile.item(row,3).setBackground(qt.QColor(rgb[0]*255,rgb[1]*255,rgb[2]*255))
+                widget = self.tableWidget_VTKFiles.cellWidget(row, 3)
+                self.tableWidget_VTKFiles.item(row,3).setBackground(qt.QColor(rgb[0]*255,rgb[1]*255,rgb[2]*255))
             else:
-                self.tableWidget_VTKFile.item(row,3).setBackground(qt.QColor(255,255,255))
+                self.tableWidget_VTKFiles.item(row,3).setBackground(qt.QColor(255,255,255))
 
     def onPreviewVTKFiles(self):
         print "------Preview VTK Files------"
         if self.pathLineEdit_NewGroups.currentPath or self.pathLineEdit_IncreaseExistingData.currentPath:
             # Creation of a color map to visualize each group with a different color in ShapePopulationViewer
-            self.logic.addColorMap(self.tableWidget_VTKFile, self.dictVTKFiles)
+            self.logic.addColorMap(self.tableWidget_VTKFiles, self.dictVTKFiles)
 
             # Creation of a CSV file to download the vtk files in ShapePopulationViewer
             filePathCSV = slicer.app.temporaryPath + '/' + 'VTKFilesPreview_OAIndex.csv'
-            self.logic.creationCSVFileForSPV(filePathCSV, self.tableWidget_VTKFile, self.dictVTKFiles)
+            self.logic.creationCSVFileForSPV(filePathCSV, self.tableWidget_VTKFiles, self.dictVTKFiles)
             parameters = {}
             parameters["CSVFile"] = filePathCSV
             launcherSPV = slicer.modules.launcher
@@ -479,8 +480,75 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             # Storage of the means for each group
             self.logic.storageMean(self.dictGroups, key)
 
-        self.directoryButton_exportNewClassification.show()
-        self.pushButton_exportNewClassification.show()
+        self.directoryButton_exportNewClassification.setEnabled(True)
+        self.pushButton_exportNewClassification.setEnabled(True)
+
+    def onExportNewClassificationGroups(self):
+        print "-----Export Mean Group"
+
+        # Message if files already exist
+        directory = self.directoryButton_exportNewClassification.directory.encode('utf-8')
+        messageBox = ctk.ctkMessageBox()
+        messageBox.setWindowTitle(' /!\ WARNING /!\ ')
+        messageBox.setIcon(messageBox.Warning)
+        filePathExisting = list()
+
+        CSVfilePath = directory + "/NewClassificationGroups.csv"
+        if os.path.exists(CSVfilePath):
+            filePathExisting.append(CSVfilePath)
+        for key, value in self.dictGroups.items():
+            VTKFilename = os.path.basename(value[0])
+            VTKFilePath = directory + '/' + VTKFilename
+            if os.path.exists(VTKFilePath):
+                filePathExisting.append(VTKFilePath)
+        if len(filePathExisting) > 0:
+            if len(filePathExisting) == 1:
+                text = 'File ' + filePathExisting[0] + ' already exists!'
+                informativeText = 'Do you want to replace it ?'
+            elif len(filePathExisting) > 1:
+                text = 'These files are already exist: \n'
+                for path in filePathExisting:
+                    text = text + path + '\n'
+                    informativeText = 'Do you want to replace them ?'
+            messageBox.setText(text)
+            messageBox.setInformativeText(informativeText)
+            messageBox.setStandardButtons( messageBox.No | messageBox.Yes)
+            choice = messageBox.exec_()
+            if choice == messageBox.No:
+                return
+
+        # Save the CSV File and the means of each group
+        self.logic.saveNewClassificationGroups(CSVfilePath, directory, self.dictGroups)
+        self.dictGroups = dict()
+
+        # Message for the user
+        slicer.util.delayDisplay("Files Saved")
+
+        # Load automatically the CSV file in the pathline in the tab "Selection of Classification Groups"
+        self.pathLineEdit_selectionClassificationGroups.setCurrentPath(CSVfilePath)
+
+    # ---------------------------------------------------- #
+    #        Tab: Selection of Classification Groups
+    # ---------------------------------------------------- #
+
+    def onSelectionClassificationGroups(self):
+        print "------Selection Classification Groups PathLine------"
+
+        # Read CSV File:
+        self.logic.readCSVFile(self.pathLineEdit_selectionClassificationGroups.currentPath)
+        self.logic.creationDictVTKFiles(self.dictGroups)
+
+        # check if there is one VTK Files for one group
+        self.logic.checkCSVFile(self.dictGroups)
+
+        # Enable/disable buttons
+        self.spinBox_healthyGroup.setEnabled(True)
+        self.pushButton_previewGroups.setEnabled(True)
+        self.MRMLTreeView_classificationGroups.setEnabled(True)
+
+    # ---------------------------------------------------- #
+    #     Tab: Preview of Classification Groups
+    # ---------------------------------------------------- #
 
     def onPreviewClassificationGroup(self):
         print "------Preview of the Classification Groups------"
@@ -519,6 +587,10 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         threeDView = threeDWidget.threeDView()
         threeDView.resetFocalPoint()
 
+    # ---------------------------------------------------- #
+    #               Tab: Select Input Data
+    # ---------------------------------------------------- #
+
     def onEnableOption(self):
         currentNode = self.MRMLNodeComboBox_VTKFile.currentNode()
         if currentNode == None:
@@ -537,11 +609,21 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                 vtkfileToFind = node.GetName() + '.vtk'
                 find = self.logic.actionOnDictionary(self.dictVTKFiles, vtkfileToFind, None, 'find')
                 if find == False:
-                    slicer.util.errorDisplay('The selected file is not a file use to create the Classification Groups!')
+                    slicer.util.errorDisplay('The selected file is not a file used to create the Classification Groups!')
                     self.checkBox_fileInGroups.setChecked(False)
 
     def onComputeTMJtype(self):
         print "------Compute the TMJ Type of a patient------"
+        # Check if the user gave the data used to compute the TMJ type of the patient:
+        # - VTK input data
+        # - CSV file containing the Classification Groups
+        if not self.pathLineEdit_selectionClassificationGroups.currentPath:
+            slicer.util.errorDisplay('Miss the CSV file containing the Classification Groups')
+            return
+        if self.MRMLNodeComboBox_VTKFile.currentNode() == None:
+            slicer.util.errorDisplay('Miss the VTK Input Data')
+            return
+
         # If the selected file is in the groups used to create the classification groups
         if self.checkBox_fileInGroups.isChecked():
             #      Remove the file in the dictionary used to compute the classification groups
@@ -591,7 +673,6 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 if resulting_widget:
                     return resulting_widget
             return None
-
 
     def addGroupToDictionary(self, dictCSVFile, directory, directoryList, group):
         # Fill a dictionary which contains the vtk files for the classification groups sorted by group
@@ -646,8 +727,8 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         # Set the Maximum value of spinBox_healthyGroup at the max groups possible
         self.interface.spinBox_healthyGroup.setMaximum(len(dictVTKFiles))
 
-    def checkCSVFile(self, dictVTKFiles):
-        for value in dictVTKFiles.values():
+    def checkCSVFile(self, dict):
+        for value in dict.values():
             if len(value) > 1:
                 slicer.util.errorDisplay('There are more than one vtk file by groups')
                 break
@@ -919,41 +1000,17 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         value.append(meanPath)
         dictGroups[key] = value
 
-    def onExportNewClassification(self, directoryButton_exportNewClassification, dictGroups):
-        print "-----Export Mean Group"
+    def creationCSVFileForClassificationGroups(self, filePath, dictForCSV):
+        print "creationCSVFileForClassificationGroups"
+        file = open(filePath, 'w')
+        cw = csv.writer(file, delimiter=',')
+        cw.writerow(['VTK Files', 'Group'])
+        for key, value in dictForCSV.items():
+            for VTKPath in value:
+                cw.writerow([VTKPath, str(key)])
+        file.close()
 
-        # Message if files already exist
-        directory = directoryButton_exportNewClassification.directory.encode('utf-8')
-        messageBox = ctk.ctkMessageBox()
-        messageBox.setWindowTitle(' /!\ WARNING /!\ ')
-        messageBox.setIcon(messageBox.Warning)
-        filePathExisting = list()
-
-        CSVfilePath = directory + "/NewClassification.csv"
-        if os.path.exists(CSVfilePath):
-            filePathExisting.append(CSVfilePath)
-        for key, value in dictGroups.items():
-            VTKFilename = os.path.basename(value[0])
-            VTKFilePath = directory + '/' + VTKFilename
-            if os.path.exists(VTKFilePath):
-                filePathExisting.append(VTKFilePath)
-        if len(filePathExisting) > 0:
-            if len(filePathExisting) == 1:
-                text = 'File ' + filePathExisting[0] + ' already exists!'
-                informativeText = 'Do you want to replace it ?'
-            elif len(filePathExisting) > 1:
-                text = 'These files are already exist: \n'
-                for path in filePathExisting:
-                    text = text + path + '\n'
-                    informativeText = 'Do you want to replace them ?'
-            messageBox.setText(text)
-            messageBox.setInformativeText(informativeText)
-            messageBox.setStandardButtons( messageBox.No | messageBox.Yes)
-            choice = messageBox.exec_()
-            if choice == messageBox.No:
-                return
-
-        # Save the CSV File and the means of each group
+    def saveNewClassificationGroups(self, CSVfilePath, directory, dictGroups):
         dictForCSV = dict()
         for key, value in dictGroups.items():
             if os.path.exists(value[0]):
@@ -971,19 +1028,6 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 valueList.append(VTKFilePath)
                 dictForCSV[key] = valueList
         self.creationCSVFileForClassificationGroups(CSVfilePath, dictForCSV)
-
-        # Message for the user
-        slicer.util.delayDisplay("Files Saved")
-
-    def creationCSVFileForClassificationGroups(self, filePath, dictForCSV):
-        print "creationCSVFileForClassificationGroups"
-        file = open(filePath, 'w')
-        cw = csv.writer(file, delimiter=',')
-        cw.writerow(['VTK Files', 'Group'])
-        for key, value in dictForCSV.items():
-            for VTKPath in value:
-                cw.writerow([VTKPath, str(key)])
-        file.close()
 
     def actionOnDictionary(self, dict, file, listSaveVTKFiles, action):
         # Remove vtkfile to the dictionary dict and return the key if it was found or None if it's not
