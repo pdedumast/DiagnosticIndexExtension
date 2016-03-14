@@ -316,9 +316,23 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
     def onNewGroups(self):
         print "------New Groups PathLine------"
+        # Re-initialization of the dictionary containing all the vtk files which will be used to create a new Classification Groups
+        self.dictVTKFiles = dict()
+
+        # Check if the path exists:
+        if not os.path.exists(self.pathLineEdit_NewGroups.currentPath):
+            return
+
         # Download the CSV file
         self.logic.readCSVFile(self.pathLineEdit_NewGroups.currentPath)
-        self.logic.creationDictVTKFiles(self.dictVTKFiles)
+        condition = self.logic.creationDictVTKFiles(self.dictVTKFiles)
+
+        # If the file is not conformed:
+        # Re-initialization of the dictionary containing all the data which will be used to create a new Classification Groups
+        if not condition:
+            self.dictVTKFiles = dict()
+            self.pathLineEdit_NewGroups.setCurrentPath(" ")
+            return
 
         # Update the option for the preview of the vtk files in Shape Population Viewer
         self.logic.updateOptionPreviewVTKFiles(self.dictVTKFiles, self.checkableComboBox_ChoiceOfGroup, self.tableWidget_VTKFiles)
@@ -331,14 +345,23 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
     def onIncreaseExistingData(self):
         print "------Increase Existing Data PathLine------"
+        # Check if the path exists:
+        if not os.path.exists(self.pathLineEdit_IncreaseExistingData.currentPath):
+            return
 
         # Download the CSV file
         self.logic.readCSVFile(self.pathLineEdit_IncreaseExistingData.currentPath)
 
-        if self.pathLineEdit_selectionClassificationGroups.currentPath:
+        if os.path.exists(self.pathLineEdit_selectionClassificationGroups.currentPath):
             self.dictVTKFiles = self.dictGroups
             self.dictGroups = dict()
-            self.logic.creationDictVTKFiles(self.dictVTKFiles)
+            condition = self.logic.creationDictVTKFiles(self.dictVTKFiles)
+            # If the file is not conformed:
+            # Re-initialization of the dictionary containing all the data which will be used to create a new Classification Groups
+            if not condition:
+                self.dictVTKFiles = dict()
+                self.pathLineEdit_IncreaseExistingData.setCurrentPath(" ")
+                return
         else:
             # Error:
             slicer.util.errorDisplay('No Existing Data to increase')
@@ -446,7 +469,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
     def onPreviewVTKFiles(self):
         print "------Preview VTK Files------"
-        if self.pathLineEdit_NewGroups.currentPath or self.pathLineEdit_IncreaseExistingData.currentPath:
+        if os.path.exists(self.pathLineEdit_NewGroups.currentPath) or os.path.exists(self.pathLineEdit_IncreaseExistingData.currentPath):
             # Creation of a color map to visualize each group with a different color in ShapePopulationViewer
             self.logic.addColorMap(self.tableWidget_VTKFiles, self.dictVTKFiles)
 
@@ -533,13 +556,25 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
     def onSelectionClassificationGroups(self):
         print "------Selection Classification Groups PathLine------"
+        # Re-initialization of the dictionary containing the Classification Groups
+        self.dictGroups = dict()
+
+        # Check if the path exists:
+        if not os.path.exists(self.pathLineEdit_selectionClassificationGroups.currentPath):
+            return
 
         # Read CSV File:
         self.logic.readCSVFile(self.pathLineEdit_selectionClassificationGroups.currentPath)
-        self.logic.creationDictVTKFiles(self.dictGroups)
+        condition1 = self.logic.creationDictVTKFiles(self.dictGroups)
 
-        # check if there is one VTK Files for one group
-        self.logic.checkCSVFile(self.dictGroups)
+        # Check if there is one VTK Files for one group
+        condition2 = self.logic.checkCSVFile(self.dictGroups)
+        #    If the file is not conformed:
+        #    Re-initialization of the dictionary containing the Classification Groups
+        if not (condition1 and condition2):
+            self.dictGroups = dict()
+            self.pathLineEdit_selectionClassificationGroups.setCurrentPath(" ")
+            return
 
         # Enable/disable buttons
         self.spinBox_healthyGroup.setEnabled(True)
@@ -595,7 +630,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         currentNode = self.MRMLNodeComboBox_VTKFile.currentNode()
         if currentNode == None:
             self.checkBox_fileInGroups.setDisabled(True)
-        elif self.pathLineEdit_NewGroups.currentPath or self.pathLineEdit_IncreaseExistingData.currentPath:
+        elif os.path.exists(self.pathLineEdit_NewGroups.currentPath) or os.path.exists(self.pathLineEdit_IncreaseExistingData.currentPath):
             self.checkBox_fileInGroups.setEnabled(True)
 
         # Check if the selected file is in the groups used to create the classification groups
@@ -617,7 +652,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         # Check if the user gave the data used to compute the TMJ type of the patient:
         # - VTK input data
         # - CSV file containing the Classification Groups
-        if not self.pathLineEdit_selectionClassificationGroups.currentPath:
+        if not os.path.exists(self.pathLineEdit_selectionClassificationGroups.currentPath):
             slicer.util.errorDisplay('Miss the CSV file containing the Classification Groups')
             return
         if self.MRMLNodeComboBox_VTKFile.currentNode() == None:
@@ -708,7 +743,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         for i in range(0,self.table.GetNumberOfRows()):
             if not os.path.exists(self.table.GetValue(i,0).ToString()):
                 slicer.util.errorDisplay('VTK file not found, path not good at lign ' + str(i+2))
-                break
+                return False
             value = dictVTKFiles.get(self.table.GetValue(i,1).ToInt(), None)
             if value == None:
                 tempList = list()
@@ -716,6 +751,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 dictVTKFiles[self.table.GetValue(i,1).ToInt()] = tempList
             else:
                 value.append(self.table.GetValue(i,0).ToString())
+        return True
 
         # Check
         # print "Number of Groups in CSV Files: " + str(len(dictVTKFiles))
@@ -731,7 +767,8 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         for value in dict.values():
             if len(value) > 1:
                 slicer.util.errorDisplay('There are more than one vtk file by groups')
-                break
+                return False
+        return True
 
     def addColorMap(self, table, dictVTKFiles):
         for key, value in dictVTKFiles.items():
