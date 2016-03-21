@@ -350,7 +350,6 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
     # Function to read the CSV file containing all the vtk filepaths needed to create the new Classification Groups
     def onNewGroups(self):
-        print "------ Creation of a new Classification Groups ------"
         # Re-initialization of the dictionary containing all the vtk files
         # which will be used to create a new Classification Groups
         self.dictVTKFiles = dict()
@@ -359,14 +358,22 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         if not os.path.exists(self.pathLineEdit_NewGroups.currentPath):
             return
 
+        print "------ Creation of a new Classification Groups ------"
+
+        # Check if it's a CSV file
+        condition1 = self.logic.checkExtension(self.pathLineEdit_NewGroups.currentPath, ".csv")
+        if not condition1:
+            self.pathLineEdit_NewGroups.setCurrentPath(" ")
+            return
+
         # Download the CSV file
         self.logic.readCSVFile(self.pathLineEdit_NewGroups.currentPath)
-        condition = self.logic.creationDictVTKFiles(self.dictVTKFiles)
+        condition2 = self.logic.creationDictVTKFiles(self.dictVTKFiles)
 
         # If the file is not conformed:
         #    Re-initialization of the dictionary containing all the data
         #    which will be used to create a new Classification Groups
-        if not condition:
+        if not condition2:
             self.dictVTKFiles = dict()
             self.pathLineEdit_NewGroups.setCurrentPath(" ")
             return
@@ -383,9 +390,16 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_compute.setEnabled(True)
 
     def onIncreaseExistingData(self):
-        print "------Increase Existing Data PathLine------"
         # Check if the path exists:
         if not os.path.exists(self.pathLineEdit_IncreaseExistingData.currentPath):
+            return
+
+        print "------Increase Existing Data PathLine------"
+
+        # Check if it's a CSV file
+        condition1 = self.logic.checkExtension(self.pathLineEdit_IncreaseExistingData.currentPath, ".csv")
+        if not condition1:
+            self.pathLineEdit_IncreaseExistingData.setCurrentPath(" ")
             return
 
         # Download the CSV file
@@ -394,11 +408,12 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         if os.path.exists(self.pathLineEdit_selectionClassificationGroups.currentPath):
             self.dictVTKFiles = self.dictGroups
             self.dictGroups = dict()
-            condition = self.logic.creationDictVTKFiles(self.dictVTKFiles)
+            condition2 = self.logic.creationDictVTKFiles(self.dictVTKFiles)
+
             # If the file is not conformed:
             #    Re-initialization of the dictionary containing all the data
             #    which will be used to create a new Classification Groups
-            if not condition:
+            if not condition2:
                 self.dictVTKFiles = dict()
                 self.pathLineEdit_IncreaseExistingData.setCurrentPath(" ")
                 return
@@ -621,7 +636,6 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
     # Function to select the Classification Groups
     def onSelectionClassificationGroups(self):
-        print "------ Selection of a Classification Groups ------"
         # Re-initialization of the dictionary containing the Classification Groups
         self.dictGroups = dict()
 
@@ -629,16 +643,24 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         if not os.path.exists(self.pathLineEdit_selectionClassificationGroups.currentPath):
             return
 
+        print "------ Selection of a Classification Groups ------"
+
+        # Check if it's a CSV file
+        condition1 = self.logic.checkExtension(self.pathLineEdit_selectionClassificationGroups.currentPath, ".csv")
+        if not condition1:
+            self.pathLineEdit_selectionClassificationGroups.setCurrentPath(" ")
+            return
+
         # Read CSV File:
         self.logic.readCSVFile(self.pathLineEdit_selectionClassificationGroups.currentPath)
-        condition1 = self.logic.creationDictVTKFiles(self.dictGroups)
+        condition2 = self.logic.creationDictVTKFiles(self.dictGroups)
 
         # Check if there is one VTK Files per group
-        condition2 = self.logic.checkCSVFile(self.dictGroups)
+        condition3 = self.logic.checkCSVFile(self.dictGroups)
 
         #    If the file is not conformed:
         #    Re-initialization of the dictionary containing the Classification Groups
-        if not (condition1 and condition2):
+        if not (condition2 and condition3):
             self.dictGroups = dict()
             self.pathLineEdit_selectionClassificationGroups.setCurrentPath(" ")
             return
@@ -829,6 +851,13 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
 
         # Remove the path of the directory
         directoryList.pop(group - 1)
+
+    # Check if the path given has the right extension
+    def checkExtension(self, filename, extension):
+        if os.path.splitext(os.path.basename(filename))[1] == extension:
+            return True
+        slicer.util.errorDisplay('Wrong extension file, a CSV file is needed!')
+        return False
 
     # Function to read a CSV file
     def readCSVFile(self, filename):
