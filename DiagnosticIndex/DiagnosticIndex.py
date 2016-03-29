@@ -4,6 +4,8 @@ import unittest
 from __main__ import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 from types import *
+import math
+import shutil
 
 
 class DiagnosticIndex(ScriptedLoadableModule):
@@ -305,7 +307,6 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     def onExportForCreationCSVFile(self):
         # Path of the csv file
         directory = self.directoryButton_exportCSVFile.directory.encode('utf-8')
-        filepath = directory + '/VTKFilesToCreateClassificationGroups.csv'
 
         # Message if the csv file already exists
         messageBox = ctk.ctkMessageBox()
@@ -320,7 +321,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                 return
 
         # Save the CSV File
-        self.logic.creationCSVFileForClassificationGroups(filepath, self.dictCSVFile)
+        self.logic.creationCSVFile(directory, 'VTKFilesToCreateClassificationGroups.csv', self.dictCSVFile, False)
 
         # Re-Initialization of the first tab
         self.spinBox_group.setMaximum(1)
@@ -575,7 +576,12 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                 return
 
         # Save the CSV File and the means of each group
-        self.logic.saveNewClassificationGroups(CSVfilePath, directory, self.dictGroups)
+        self.logic.saveNewClassificationGroups('NewClassificationGroups.csv', directory, self.dictGroups)
+
+        # Remove the shape model (GX.h5) and the mean vtk file (meanGroupX.vtk) of each group
+        self.logic.removeDataAfterNCG(self.dictGroups)
+
+        # Re-Initialization of the dictionary containing the path of the mean group
         self.dictGroups = dict()
 
         # Message for the user
@@ -1169,29 +1175,42 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         value.append(meanPath)
         dictGroups[key] = value
 
-    # Function to create a CSV file containing all the vtk files with the group corresponding
-    #    - This CSV file will be use to create a new Classification Groups
-    #    - This file is created from a dictionary filled thanks to teh first tab
-    def creationCSVFileForClassificationGroups(self, filePath, dictForCSV):
-        file = open(filePath, 'w')
+    # Function to create a CSV file:
+    #    - Two columns are always created:
+    #          - First column: path of the vtk files
+    #          - Second column: group associated to this vtk file
+    #    - If saveH5 is True, this CSV file will contain a New Classification Group, a thrid column is then added
+    #          - Thrid column: path of the shape model of each group
+    def creationCSVFile(self, directory, CSVbasename, dictForCSV, saveH5):
+        CSVFilePath = directory + "/" + CSVbasename
+        file = open(CSVFilePath, 'w')
         cw = csv.writer(file, delimiter=',')
-        cw.writerow(['VTK Files', 'Group'])
+        if saveH5 == False:
+            cw.writerow(['VTK Files', 'Group'])
+        else:
+            cw.writerow(['VTK Files', 'Group', 'H5 Path'])
         for key, value in dictForCSV.items():
             for VTKPath in value:
-                cw.writerow([VTKPath, str(key)])
+                if saveH5 == False:
+                    cw.writerow([VTKPath, str(key)])
+                else:
+                    h5Path = directory + "/G" + str(key) + ".h5"
+                    cw.writerow([VTKPath, str(key), h5Path])
         file.close()
-
 
     # Function to save the data of the new Classification Groups in the directory given by the user
     #       - The mean vtk files of each groups
-    #       - The CSV file containing the path of each mean group with the group associated
-    def saveNewClassificationGroups(self, CSVfilePath, directory, dictGroups):
-
-        # Save the mean vtk files of each groups
+    #       - The shape models of each groups
+    #       - The CSV file containing:
+    #               - First column: the paths of mean vtk file of each group
+    #               - Second column: the groups associated
+    #               - Third column: the paths of the shape model of each group
+    def saveNewClassificationGroups(self, basename, directory, dictGroups):
         dictForCSV = dict()
         for key, value in dictGroups.items():
+            # Save the mean vtk files of each groups
             if os.path.exists(value[0]):
-                # Read VTK File
+                #    Read VTK File
                 reader = vtk.vtkDataSetReader()
                 reader.SetFileName(value[0])
                 reader.ReadAllVectorsOn()
@@ -1199,20 +1218,39 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 reader.Update()
                 polyData = reader.GetOutput()
 
-                # Creation of the path of the vtk file
+                #    Creation of the path of the vtk file
                 VTKFilename = os.path.basename(value[0])
                 VTKFilePath = directory + '/' + VTKFilename
 
-                # Save the vtk file
+                #    Save the vtk file
                 self.saveVTKFile(polyData, VTKFilePath)
 
-                # Fill a dictionary which will be used to created the CSV file containing the Classification Groups
+                #    Fill a dictionary which will be used to created the CSV file containing the Classification Groups
                 valueList = list()
                 valueList.append(VTKFilePath)
                 dictForCSV[key] = valueList
 
-        # Save the CSV file containing the path of each mean group with the group associated
-        self.creationCSVFileForClassificationGroups(CSVfilePath, dictForCSV)
+            # Save the shape model (h5 file) of each group
+            h5Basename = "G" + str(key) + ".h5"
+            oldh5path = slicer.app.temporaryPath + "/" + h5Basename
+            newh5path = directory + "/" + h5Basename
+            shutil.copyfile(oldh5path, newh5path)
+
+        # Save the CSV file containing all the data useful in order to compute OAIndex of a patient
+        self.creationCSVFile(directory, basename, dictForCSV, True)
+
+    # Function to remove in the temporary directory all the data useless after to do a export of the new Classification Groups
+    def removeDataAfterNCG(self, dict):
+        for key in dict.keys():
+            # Remove of the shape model of each group
+            h5Path = slicer.app.temporaryPath + "/G" + str(key) + ".h5"
+            if os.path.exists(h5Path):
+                os.remove(h5Path)
+
+            # Remove of the mean of each group
+            meanPath = slicer.app.temporaryPath + "/meanGroup" + str(key) + ".vtk"
+            if os.path.exists(meanPath):
+                os.remove(meanPath)
 
     # Function to make some action on a dictionary
     def actionOnDictionary(self, dict, file, listSaveVTKFiles, action):
