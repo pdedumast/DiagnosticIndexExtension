@@ -43,6 +43,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.dictCSVFile = dict()
         self.directoryList = list()
         self.groupSelected = set()
+        self.dictShapeModels = dict()
 
         # Interface
         loader = qt.QUiLoader()
@@ -527,6 +528,9 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             # Storage of the means for each group
             self.logic.storageMean(self.dictGroups, key)
 
+            # Storage of the shape model for each group
+            self.logic.storeShapeModel(self.dictShapeModels, key)
+
         # Enable the option to export the new data
         self.directoryButton_exportNewClassification.setEnabled(True)
         self.pushButton_exportNewClassification.setEnabled(True)
@@ -553,10 +557,17 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
         #   Check if the mean VTK files exist
         for key, value in self.dictGroups.items():
-            VTKFilename = os.path.basename(value[0])
+            VTKFilename = os.path.basename(value)
             VTKFilePath = directory + '/' + VTKFilename
             if os.path.exists(VTKFilePath):
                 filePathExisting.append(VTKFilePath)
+
+        #   Check if the shape model exist
+        for key, value in self.dictShapeModels.items():
+            modelFilename = os.path.basename(value)
+            modelFilePath = directory + '/' + modelFilename
+            if os.path.exists(modelFilePath):
+                filePathExisting.append(modelFilePath)
 
         #   Write the message for the user
         if len(filePathExisting) > 0:
@@ -584,6 +595,9 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         # Re-Initialization of the dictionary containing the path of the mean group
         self.dictGroups = dict()
 
+        # Re-Initialization of the dictionary containing the path of the shape model of each group
+        self.dictShapeModels = dict()
+
         # Message for the user
         slicer.util.delayDisplay("Files Saved")
 
@@ -598,6 +612,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     def onSelectionClassificationGroups(self):
         # Re-initialization of the dictionary containing the Classification Groups
         self.dictGroups = dict()
+        self.dictShapeModels = dict()
 
         # Check if the path exists:
         if not os.path.exists(self.pathLineEdit_selectionClassificationGroups.currentPath):
@@ -612,16 +627,18 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             return
 
         # Read CSV File:
-        self.logic.readCSVFile(self.pathLineEdit_selectionClassificationGroups.currentPath)
+        self.logic.table = self.logic.readCSVFile(self.pathLineEdit_selectionClassificationGroups.currentPath)
         condition2 = self.logic.creationDictVTKFiles(self.dictGroups)
+        condition3 = self.logic.creationDictShapeModel(self.dictShapeModels)
 
         # Check if there is one VTK Files per group
-        condition3 = self.logic.checkCSVFile(self.dictGroups)
+        condition4 = self.logic.checkCSVFile(self.dictGroups)
 
         #    If the file is not conformed:
         #    Re-initialization of the dictionary containing the Classification Groups
-        if not (condition2 and condition3):
+        if not (condition2 and condition3 and condition4):
             self.dictGroups = dict()
+            self.dictShapeModels = dict()
             self.pathLineEdit_selectionClassificationGroups.setCurrentPath(" ")
             return
 
@@ -652,10 +669,10 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             # Error message:
             slicer.util.errorDisplay('Miss the number of the healthy group ')
         else:
-            for i in self.dictGroups.keys():
-                filename = self.dictGroups.get(i, None)
+            for key in self.dictGroups.keys():
+                filename = self.dictGroups.get(key, None)
                 loader = slicer.util.loadModel
-                loader(filename[0])
+                loader(filename)
 
         # Change the color and the opacity for each vtk file
             list = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
@@ -665,7 +682,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                 disp = model.GetDisplayNode()
                 for group in self.dictGroups.keys():
                     filename = self.dictGroups.get(group, None)
-                    if os.path.splitext(os.path.basename(filename[0]))[0] == model.GetName():
+                    if os.path.splitext(os.path.basename(filename))[0] == model.GetName():
                         if self.spinBox_healthyGroup.value == group:
                             disp.SetColor(1, 1, 1)
                             disp.VisibilityOn()
@@ -745,6 +762,9 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                                                              'remove')
 
             #      Copy the Classification Groups
+            dictShapeModelsTemp = dict()
+            dictShapeModelsTemp = self.dictShapeModels
+            self.dictShapeModels = dict()
             dictGroupsTemp = dict()
             dictGroupsTemp = self.dictGroups
             self.dictGroups = dict()
@@ -762,8 +782,13 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                                           vtkfileToRemove,
                                           listSaveVTKFiles,
                                           'add')
+
             #      Recovery the Classification Groups previously saved
             self.dictGroups = dictGroupsTemp
+            self.dictShapeModels = dictShapeModelsTemp
+
+            #      Remove the data previously created
+            self.logic.removeDataAfterNCG(self.dictGroups)
 
 # ------------------------------------------------------------------------------------
 #                                   ALGORITHM
@@ -836,25 +861,46 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
     #      Else if all the path of all vtk file exist
     #         Return True
     def creationDictVTKFiles(self, dict):
-        for i in range(0,self.table.GetNumberOfRows()):
+        for i in range(0, self.table.GetNumberOfRows()):
             if not os.path.exists(self.table.GetValue(i,0).ToString()):
                 slicer.util.errorDisplay('VTK file not found, path not good at lign ' + str(i+2))
                 return False
             value = dict.get(self.table.GetValue(i,1).ToInt(), None)
             if value == None:
-                tempList = list()
-                tempList.append(self.table.GetValue(i,0).ToString())
-                dict[self.table.GetValue(i,1).ToInt()] = tempList
+                dict[self.table.GetValue(i,1).ToInt()] = self.table.GetValue(i,0).ToString()
             else:
-                value.append(self.table.GetValue(i,0).ToString())
-        return True
+                if type(value) is ListType:
+                    value.append(self.table.GetValue(i,0).ToString())
+                else:
+                    tempList = list()
+                    tempList.append(value)
+                    tempList.append(self.table.GetValue(i,0).ToString())
+                    dict[self.table.GetValue(i,1).ToInt()] = tempList
 
         # Check
-        # print "Number of Groups in CSV Files: " + str(len(dictVTKFiles))
-        # for i in range(1, len(dictVTKFiles) + 1):
-        #     value = dictVTKFiles.get(i, None)
-        #     print "Groupe: " + str(i)
+        # print "Number of Groups in CSV Files: " + str(len(dict))
+        # for key, value in dict.items():
+        #     print "Groupe: " + str(key)
         #     print "VTK Files: " + str(value)
+
+        return True
+
+    # Function to store the shape models for each group in a dictionary
+    #    - The function return True if all the paths exist, else False
+    def creationDictShapeModel(self, dict):
+        for i in range(0, self.table.GetNumberOfRows()):
+            if not os.path.exists(self.table.GetValue(i,2).ToString()):
+                slicer.util.errorDisplay('H5 file not found, path not good at lign ' + str(i+2))
+                return False
+            dict[self.table.GetValue(i,1).ToInt()] = self.table.GetValue(i,2).ToString()
+
+        # Check
+        # print "Number of Groups in CSV Files: " + str(len(dict))
+        # for key, value in dict.items():
+        #     print "Groupe: " + str(key)
+        #     print "H5 Files: " + str(value)
+
+        return True
 
     # Function to check the CSV file containing the Classification Groups
     #    - If there isn't one path per group
@@ -863,7 +909,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
     #         Return True
     def checkCSVFile(self, dict):
         for value in dict.values():
-            if len(value) > 1:
+            if type(value) is ListType:
                 slicer.util.errorDisplay('There are more than one vtk file by groups')
                 return False
         return True
@@ -1171,9 +1217,13 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
     def storageMean(self, dictGroups, key):
         filename = "meanGroup" + str(key)
         meanPath = slicer.app.temporaryPath + '/' + filename + '.vtk'
-        value = list()
-        value.append(meanPath)
-        dictGroups[key] = value
+        dictGroups[key] = meanPath
+
+    # Function to storage the shape model of each group in a dictionary
+    def storeShapeModel(self, dictShapeModels, key):
+        filename = "G" + str(key)
+        modelPath = slicer.app.temporaryPath + '/' + filename + '.h5'
+        dictShapeModels[key] = modelPath
 
     # Function to create a CSV file:
     #    - Two columns are always created:
@@ -1209,17 +1259,17 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         dictForCSV = dict()
         for key, value in dictGroups.items():
             # Save the mean vtk files of each groups
-            if os.path.exists(value[0]):
+            if os.path.exists(value):
                 #    Read VTK File
                 reader = vtk.vtkDataSetReader()
-                reader.SetFileName(value[0])
+                reader.SetFileName(value)
                 reader.ReadAllVectorsOn()
                 reader.ReadAllScalarsOn()
                 reader.Update()
                 polyData = reader.GetOutput()
 
                 #    Creation of the path of the vtk file
-                VTKFilename = os.path.basename(value[0])
+                VTKFilename = os.path.basename(value)
                 VTKFilePath = directory + '/' + VTKFilename
 
                 #    Save the vtk file
