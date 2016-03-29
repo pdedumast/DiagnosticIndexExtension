@@ -502,8 +502,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             slicer.cli.run(launcherSPV, None, parameters, wait_for_completion=True)
 
             # Remove the vtk files previously created in the temporary directory of Slicer
-            for key, value in self.dictVTKFiles.items():
-                self.logic.removeDataInTemporaryDirectory(key, value)
+            for value in self.dictVTKFiles.values():
+                self.logic.removeDataUsedToCreateMean(value)
 
     # Function to compute the new Classification Groups
     #    - Remove all the arrays of all the vtk files
@@ -514,14 +514,14 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             self.logic.deleteArrays(key, value)
 
             if len(value) > 1:
-                # Create the datalist for Statismo
-                datalist = self.logic.creationTXTFile(key, value)
+                # Compute the shape model of each group
+                self.logic.buildShapeModel(key, value)
 
                 # Compute the mean of each group thanks to Statismo
-                self.logic.computeMean(key, datalist)
+                self.logic.computeMean(key)
 
                 # Remove the files previously created in the temporary directory
-                self.logic.removeDataInTemporaryDirectory(key, value)
+                self.logic.removeDataUsedToCreateMean(value)
 
             # Storage of the means for each group
             self.logic.storageMean(self.dictGroups, key)
@@ -1076,49 +1076,43 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         writer.Update()
         writer.Write()
 
-    # Creation of a txt file that will be used to create the shape model thanks to the CLI statismo-build-shape-model
-    #    To be conformed, the txt file will have one path of a mesh-file per line
-    def creationTXTFile(self, key, value):
-        # Filepath of the txt file
-        filename = "group" + str(key)
-        dataListPath = slicer.app.temporaryPath + '/' + filename + '.txt'
+    # Function to save in the temporary directory of Slicer a shape model file called GX.h5
+    # built with the vtk files contained in the group X
+    def buildShapeModel(self, groupnumber, vtkList):
+        print "--- Build the shape model of the group " + str(groupnumber) + " ---"
 
-        # Write one path of a mesh-file per line
-        file = open(dataListPath, "w")
-        for vtkFile in value:
-            pathfile = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
-            file.write(pathfile + "\n")
-        file.close()
-        return dataListPath
-
-    # Function to compute the mean between all the mesh-files contained in one group
-    def computeMean(self, key, datalist):
-        print "--- Compute the mean of the group " + str(key) + " ---"
-
-        # Call of statismo-build-shape-model used to build a shape model from a given list of meshes
+        # Call of saveModels used to build a shape model from a given list of meshes
         # Arguments:
-        #  --data-list is the path to a file containing a list of mesh-files that will be used to create the shape model
-        #  --output-file is the path where the newly build model should be saved (creation of hdf5 file)
+        #  --groupnumber is the number of the group used to create the shape model
+        #  --vtkfilelist is a list of vtk paths of one group that will be used to create the shape model
+        #  --resultdir is the path where the newly build model should be saved
 
         #     Creation of the command line
-        statismoBuildShapeModel = "/Users/lpascal/Applications/Statismo-static/statismo-build/Statismo-build/bin/statismo-build-shape-model"
+        saveModels = "/Users/lpascal/Documents/DIAGNOSTICINDEX/Code/SaveModelsH5/saveModels-build/bin/saveModels"
         arguments = list()
-        arguments.append("--data-list")
-        arguments.append(datalist)
-        arguments.append("--output-file")
-        filename = "group" + str(key)
-        outputFile = slicer.app.temporaryPath + '/' + filename + '.h5'
-        arguments.append(outputFile)
+        arguments.append("--groupnumber")
+        arguments.append(groupnumber)
+        arguments.append("--vtkfilelist")
+        vtkfilelist = ""
+        for vtkFiles in vtkList:
+            vtkfilelist = vtkfilelist + vtkFiles + ','
+        arguments.append(vtkfilelist)
+        arguments.append("--resultdir")
+        resultdir = slicer.app.temporaryPath
+        arguments.append(resultdir)
 
         #     Call the CLI
         process = qt.QProcess()
-        print "Calling " + os.path.basename(statismoBuildShapeModel)
-        process.start(statismoBuildShapeModel, arguments)
+        print "Calling " + os.path.basename(saveModels)
+        process.start(saveModels, arguments)
         process.waitForStarted()
         # print "state: " + str(process.state())
         process.waitForFinished()
         # print "error: " + str(process.error())
 
+    # Function to compute the mean between all the mesh-files contained in one group
+    def computeMean(self, key):
+        print "--- Compute the mean of the group " + str(key) + " ---"
 
         # Call of vtkBasicSamplingExample which will save the mean of the group contained in the hdf5 file
         # Arguments:
@@ -1129,20 +1123,21 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         #                       - randomsample.vtk
 
         #     Creation of the command line
-        vtkBasicSamplingExample = "/Users/lpascal/Applications/Statismo-static/statismo-build/Statismo-build/bin/vtkBasicSamplingExample"
+        vtkBasicSamplingExample = "/Users/lpascal/Applications/Statismo/statismo-build-static/Statismo-build/bin/vtkBasicSamplingExample"
         arguments = list()
-        modelname = outputFile
+        h5path = slicer.app.temporaryPath + "/G" + str(key) + ".h5"
+        modelname = h5path
         arguments.append(modelname)
         resultdir = slicer.app.temporaryPath
         arguments.append(resultdir)
 
         #     Call the executable
-        process2 = qt.QProcess()
+        process = qt.QProcess()
         print "Calling " + os.path.basename(vtkBasicSamplingExample)
-        process2.start(vtkBasicSamplingExample, arguments)
-        process2.waitForStarted()
+        process.start(vtkBasicSamplingExample, arguments)
+        process.waitForStarted()
         # print "state: " + str(process2.state())
-        process2.waitForFinished()
+        process.waitForFinished()
         # print "error: " + str(process2.error())
 
         # Rename of the mean of the group
@@ -1151,18 +1146,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         os.rename(oldname, newname)
 
     # Function to remove in the temporary directory all the data used to create the mean for each group
-    def removeDataInTemporaryDirectory(self, key, value):
-        # remove of 'groupX.txt'
-        filename = "group" + str(key)
-        dataListPath = slicer.app.temporaryPath + '/' + filename + '.txt'
-        if os.path.exists(dataListPath):
-            os.remove(dataListPath)
-
-        # remove of 'groupX.h5'
-        outputFilePath = slicer.app.temporaryPath + '/' + filename + '.h5'
-        if os.path.exists(outputFilePath):
-            os.remove(outputFilePath)
-
+    def removeDataUsedToCreateMean(self, value):
         # remove of samplePC1.vtk and randomsample.vtk
         path = slicer.app.temporaryPath + '/samplePC1.vtk'
         if os.path.exists(path):
