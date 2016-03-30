@@ -838,6 +838,9 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             # Compute the TMJ OA type of a patient
             resultgroup = self.logic.computeOAIndex(self.dictGroups)
 
+        # Remove the CSV file containing the Shape OA Vector Loads
+        self.logic.removeShapeOALoadsCSVFile(self.dictShapeModels.keys())
+
         # **** CROSS VALIDATION ****
         # If the selected file is in the groups used to create the classification groups
         if self.checkBox_fileInGroups.isChecked():
@@ -1443,6 +1446,13 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         resultGroup = OAIndexList.index(min(OAIndexList)) + 1
         print "RESULT: " + str(resultGroup)
         return resultGroup
+
+    # Function to remove the shape model of each group
+    def removeShapeOALoadsCSVFile(self, keylist):
+        for key in keylist:
+            shapeOALoadsPath = slicer.app.temporaryPath + "/ShapeOAVectorLoadsG" + str(key) + ".csv"
+            if os.path.exists(shapeOALoadsPath):
+                os.remove(shapeOALoadsPath)
 
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
