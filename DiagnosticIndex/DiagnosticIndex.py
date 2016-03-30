@@ -369,7 +369,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             return
 
         # Download the CSV file
-        self.logic.readCSVFile(self.pathLineEdit_NewGroups.currentPath)
+        self.logic.table = self.logic.readCSVFile(self.pathLineEdit_NewGroups.currentPath)
         condition2 = self.logic.creationDictVTKFiles(self.dictVTKFiles)
 
         # If the file is not conformed:
@@ -784,13 +784,16 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.enableOption()
 
     # Function to define the TMJ OA type of the patient
+    #    *** CROSS VALIDATION:
     #    - If the user specified that the vtk file was in the groups used to create the Classification Groups:
     #           - Save the current classification groups
     #           - Re-compute the new classification groups without this file
-    #           - Define the TMJ OA type of a patient: TODO
+    #           - Define the TMJ OA type of a patient
     #           - Recovery the classification groups
+    #    *** Define the TMJ OA of a patient:
     #    - Else:
-    #           - Define the TMJ OA type of a patient: TODO
+    #           - Compute the ShapeOALoads for each group
+    #           - Compute the TMJ OA type of a patient
     def onComputeTMJtype(self):
         print "------ Compute the TMJ Type of a patient ------"
         # Check if the user gave all the data used to compute the TMJ OA type of the patient:
@@ -803,6 +806,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             slicer.util.errorDisplay('Miss the Input Data')
             return
 
+        # **** CROSS VALIDATION ****
         # If the selected file is in the groups used to create the classification groups
         if self.checkBox_fileInGroups.isChecked():
             #      Remove the file in the dictionary used to compute the classification groups
@@ -824,9 +828,17 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             #      Re-compute the new classification groups
             self.onComputeNewClassificationGroups()
 
-        # Define the TMJ OA type of a patient
-        # TODO: call the CLI to define the TMJ OA type of a patient
+        # *** Define the TMJ OA type of a patient ***
+        # For each patient:
+        for patient in self.patientList:
+            # Compute the ShapeOALoads for each group
+            for key, value in self.dictShapeModels.items():
+                self.logic.computeShapeOALoads(key, patient, value)
 
+            # Compute the TMJ OA type of a patient
+            resultgroup = self.logic.computeOAIndex(self.dictGroups)
+
+        # **** CROSS VALIDATION ****
         # If the selected file is in the groups used to create the classification groups
         if self.checkBox_fileInGroups.isChecked():
             #      Add the file previously removed to the dictionary used to create the classification groups
@@ -904,7 +916,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         CSVreader.SetHaveHeaders(True)
         CSVreader.Update()
 
-        self.table = CSVreader.GetOutput()
+        return CSVreader.GetOutput()
 
     # Function to create a dictionary containing all the vtk filepaths sorted by group
     #    - the paths are given by a CSV file
@@ -1388,6 +1400,49 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
             if not listSaveVTKFiles == None and not file == None:
                 value = dict.get(listSaveVTKFiles[0], None)
                 value.append(listSaveVTKFiles[1])
+
+    # Function in order to compute the shape OA loads of a shape model
+    def computeShapeOALoads(self, groupnumber, vtkfilepath, modelfile):
+            #     Creation of the command line
+            loadModels = "/Users/lpascal/Documents/DIAGNOSTICINDEX/Code/LoadModelsH5/loadModels-build/bin/loadModels"
+            arguments = list()
+            arguments.append("--groupnumber")
+            arguments.append(groupnumber)
+            arguments.append("--vtkfile")
+            arguments.append(vtkfilepath)
+            arguments.append("--resultdir")
+            resultdir = slicer.app.temporaryPath
+            arguments.append(resultdir)
+            arguments.append("--modelfile")
+            arguments.append(modelfile)
+
+            #     Call the CLI
+            process = qt.QProcess()
+            print "Calling " + os.path.basename(loadModels)
+            process.start(loadModels, arguments)
+            process.waitForStarted()
+            # print "state: " + str(process.state())
+            process.waitForFinished()
+            # print "error: " + str(process.error())
+
+    # Function to compute the TMJ OA of a patient
+    def computeOAIndex(self, dict):
+        OAIndexList = list()
+        for key in dict.keys():
+            ShapeOAVectorLoadsPath = slicer.app.temporaryPath + "/ShapeOAVectorLoadsG" + str(key) + ".csv"
+            if not os.path.exists(ShapeOAVectorLoadsPath):
+                return
+            tableShapeOAVectorLoads = vtk.vtkTable
+            tableShapeOAVectorLoads = self.readCSVFile(ShapeOAVectorLoadsPath)
+            sum = 0
+            for row in range(0, tableShapeOAVectorLoads.GetNumberOfRows()):
+                ShapeOALoad = tableShapeOAVectorLoads.GetValue(row, 0).ToDouble()
+                sum = sum + math.pow(ShapeOALoad, 2)
+            OAIndexList.append(math.sqrt(sum)/tableShapeOAVectorLoads.GetNumberOfRows())
+        # print OAIndexList
+        resultGroup = OAIndexList.index(min(OAIndexList)) + 1
+        print "RESULT: " + str(resultGroup)
+        return resultGroup
 
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
