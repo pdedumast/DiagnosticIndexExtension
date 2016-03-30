@@ -44,6 +44,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.directoryList = list()
         self.groupSelected = set()
         self.dictShapeModels = dict()
+        self.patientList = list()
 
         # Interface
         loader = qt.QUiLoader()
@@ -90,7 +91,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.MRMLTreeView_classificationGroups = self.logic.get('MRMLTreeView_classificationGroups')
         #          Tab: Select Input Data
         self.collapsibleButton_selectInputData = self.logic.get('CollapsibleButton_selectInputData')
-        self.MRMLNodeComboBox_VTKFile = self.logic.get('MRMLNodeComboBox_VTKFile')
+        self.MRMLNodeComboBox_VTKInputData = self.logic.get('MRMLNodeComboBox_VTKInputData')
+        self.pathLineEdit_CSVInputData = self.logic.get('PathLineEdit_CSVInputData')
         self.checkBox_fileInGroups = self.logic.get('checkBox_fileInGroups')
         self.pushButton_applyTMJtype = self.logic.get('pushButton_applyTMJtype')
         #          Tab: Result / Analysis
@@ -111,7 +113,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_previewVTKFiles.setDisabled(True)
 
         #     qMRMLNodeComboBox configuration
-        self.MRMLNodeComboBox_VTKFile.setMRMLScene(slicer.mrmlScene)
+        self.MRMLNodeComboBox_VTKInputData.setMRMLScene(slicer.mrmlScene)
 
         #     initialisation of the stackedWidget to display the button "add group"
         self.stackedWidget_manageGroup.setCurrentIndex(0)
@@ -178,8 +180,9 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         #          Tab: Select Input Data
         self.collapsibleButton_selectInputData.connect('clicked()',
                                                        lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_selectInputData))
-        self.MRMLNodeComboBox_VTKFile.connect('currentNodeChanged(vtkMRMLNode*)', self.onEnableOption)
+        self.MRMLNodeComboBox_VTKInputData.connect('currentNodeChanged(vtkMRMLNode*)', self.onVTKInputData)
         self.checkBox_fileInGroups.connect('clicked()', self.onCheckFileInGroups)
+        self.pathLineEdit_CSVInputData.connect('currentPathChanged(const QString)', self.onCSVInputData)
         self.pushButton_applyTMJtype.connect('clicked()', self.onComputeTMJtype)
         #          Tab: Result / Analysis
         self.collapsibleButton_Result.connect('clicked()',
@@ -703,10 +706,40 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     #               Tab: Select Input Data
     # ---------------------------------------------------- #
 
+    # Function to select the vtk Input Data
+    def onVTKInputData(self):
+        # Remove the old vtk file in the temporary directory of slicer if it exists
+        if self.patientList:
+            print "onVTKInputData remove old vtk file"
+            oldVTKPath = slicer.app.temporaryPath + "/" + os.path.basename(self.patientList[0])
+            if os.path.exists(oldVTKPath):
+                os.remove(oldVTKPath)
+
+        # Re-Initialization of the patient list
+        self.patientList = list()
+
+        # Handle checkbox "File already in the groups"
+        self.enableOption()
+
+        # Delete the path in CSV file
+        currentNode = self.MRMLNodeComboBox_VTKInputData.currentNode()
+        if currentNode == None:
+            return
+        self.pathLineEdit_CSVInputData.setCurrentPath(" ")
+
+        # Adding the vtk file to the list of patient
+        currentNode = self.MRMLNodeComboBox_VTKInputData.currentNode()
+        if not currentNode == None:
+            #     Save the selected node in the temporary directory of slicer
+            vtkfilepath = slicer.app.temporaryPath + "/" + self.MRMLNodeComboBox_VTKInputData.currentNode().GetName() + ".vtk"
+            self.logic.saveVTKFile(self.MRMLNodeComboBox_VTKInputData.currentNode().GetPolyData(), vtkfilepath)
+            #     Adding to the list
+            self.patientList.append(vtkfilepath)
+
     # Function to handle the checkbox "File already in the groups"
-    def onEnableOption(self):
+    def enableOption(self):
         # Enable or disable the checkbox "File already in the groups" according to the data previously selected
-        currentNode = self.MRMLNodeComboBox_VTKFile.currentNode()
+        currentNode = self.MRMLNodeComboBox_VTKInputData.currentNode()
         if currentNode == None:
             if self.checkBox_fileInGroups.isChecked():
                 self.checkBox_fileInGroups.setChecked(False)
@@ -723,13 +756,32 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     #           - deselected checkbox
     def onCheckFileInGroups(self):
         if self.checkBox_fileInGroups.isChecked():
-            node = self.MRMLNodeComboBox_VTKFile.currentNode()
+            node = self.MRMLNodeComboBox_VTKInputData.currentNode()
             if not node == None:
                 vtkfileToFind = node.GetName() + '.vtk'
                 find = self.logic.actionOnDictionary(self.dictVTKFiles, vtkfileToFind, None, 'find')
                 if find == False:
                     slicer.util.errorDisplay('The selected file is not a file used to create the Classification Groups!')
                     self.checkBox_fileInGroups.setChecked(False)
+
+    # Function to select the CSV Input Data
+    def onCSVInputData(self):
+        self.patientList = list()
+
+        # Delete the path in VTK file
+        if not os.path.exists(self.pathLineEdit_CSVInputData.currentPath):
+            return
+        self.MRMLNodeComboBox_VTKInputData.setCurrentNode(None)
+
+        # Adding the name of the node a list
+        if os.path.exists(self.pathLineEdit_CSVInputData.currentPath):
+            patientTable = vtk.vtkTable
+            patientTable = self.logic.readCSVFile(self.pathLineEdit_CSVInputData.currentPath)
+            for i in range(0, patientTable.GetNumberOfRows()):
+                self.patientList.append(patientTable.GetValue(i,0).ToString())
+
+        # Handle checkbox "File already in the groups"
+        self.enableOption()
 
     # Function to define the TMJ OA type of the patient
     #    - If the user specified that the vtk file was in the groups used to create the Classification Groups:
@@ -742,20 +794,20 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     def onComputeTMJtype(self):
         print "------ Compute the TMJ Type of a patient ------"
         # Check if the user gave all the data used to compute the TMJ OA type of the patient:
-        # - VTK input data
+        # - VTK input data or CSV input data
         # - CSV file containing the Classification Groups
         if not os.path.exists(self.pathLineEdit_selectionClassificationGroups.currentPath):
             slicer.util.errorDisplay('Miss the CSV file containing the Classification Groups')
             return
-        if self.MRMLNodeComboBox_VTKFile.currentNode() == None:
-            slicer.util.errorDisplay('Miss the VTK Input Data')
+        if self.MRMLNodeComboBox_VTKInputData.currentNode() == None and not self.pathLineEdit_CSVInputData.currentPath:
+            slicer.util.errorDisplay('Miss the Input Data')
             return
 
         # If the selected file is in the groups used to create the classification groups
         if self.checkBox_fileInGroups.isChecked():
             #      Remove the file in the dictionary used to compute the classification groups
             listSaveVTKFiles = list()
-            vtkfileToRemove = self.MRMLNodeComboBox_VTKFile.currentNode().GetName() + '.vtk'
+            vtkfileToRemove = self.MRMLNodeComboBox_VTKInputData.currentNode().GetName() + '.vtk'
             listSaveVTKFiles = self.logic.actionOnDictionary(self.dictVTKFiles,
                                                              vtkfileToRemove,
                                                              listSaveVTKFiles,
