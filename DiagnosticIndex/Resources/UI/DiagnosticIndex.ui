@@ -58,7 +58,7 @@
             </sizepolicy>
            </property>
            <property name="currentIndex">
-            <number>1</number>
+            <number>0</number>
            </property>
            <widget class="QWidget" name="page_manageLastGroup">
             <layout class="QHBoxLayout" name="horizontalLayout_3">
@@ -387,6 +387,25 @@
      <property name="contentsFrameShape">
       <enum>QFrame::StyledPanel</enum>
      </property>
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <item>
+       <widget class="QTableWidget" name="tableWidget_result"/>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_exportResult">
+        <item>
+         <widget class="ctkDirectoryButton" name="DirectoryButton_exportResult"/>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pushButton_exportResult">
+          <property name="text">
+           <string>Export Result</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
     </widget>
    </item>
    <item row="6" column="0">

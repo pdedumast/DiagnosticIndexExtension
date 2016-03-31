@@ -1207,7 +1207,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         #  --resultdir is the path where the newly build model should be saved
 
         #     Creation of the command line
-        saveModels = "/Users/lpascal/Documents/DIAGNOSTICINDEX/Code/SaveModelsH5/saveModels-build/bin/saveModels"
+        saveModel = "/Users/lpascal/Documents/DIAGNOSTICINDEX/Code/saveModel/saveModel-build/bin/saveModel"
         arguments = list()
         arguments.append("--groupnumber")
         arguments.append(groupnumber)
@@ -1222,8 +1222,8 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
 
         #     Call the CLI
         process = qt.QProcess()
-        print "Calling " + os.path.basename(saveModels)
-        process.start(saveModels, arguments)
+        print "Calling " + os.path.basename(saveModel)
+        process.start(saveModel, arguments)
         process.waitForStarted()
         # print "state: " + str(process.state())
         process.waitForFinished()
@@ -1406,32 +1406,39 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
 
     # Function in order to compute the shape OA loads of a shape model
     def computeShapeOALoads(self, groupnumber, vtkfilepath, modelfile):
-            #     Creation of the command line
-            loadModels = "/Users/lpascal/Documents/DIAGNOSTICINDEX/Code/LoadModelsH5/loadModels-build/bin/loadModels"
-            arguments = list()
-            arguments.append("--groupnumber")
-            arguments.append(groupnumber)
-            arguments.append("--vtkfile")
-            arguments.append(vtkfilepath)
-            arguments.append("--resultdir")
-            resultdir = slicer.app.temporaryPath
-            arguments.append(resultdir)
-            arguments.append("--modelfile")
-            arguments.append(modelfile)
+        # Call of loadModels used to build a shape model from a given list of meshes
+        # Arguments:
+        #  --vtkfile: Sample Input Data (VTK file path)
+        #  --resultdir: The path where the newly build model should be saved
+        #  --groupnumber: The number of the group used to create the shape model
+        #  --modelfile: Shape model of one group (H5 file path)
 
-            #     Call the CLI
-            process = qt.QProcess()
-            print "Calling " + os.path.basename(loadModels)
-            process.start(loadModels, arguments)
-            process.waitForStarted()
-            # print "state: " + str(process.state())
-            process.waitForFinished()
-            # print "error: " + str(process.error())
+        #     Creation of the command line
+        computeShapeOALoads = "/Users/lpascal/Documents/DIAGNOSTICINDEX/Code/computeShapeOALoads/computeShapeOALoads-build/bin/computeShapeOALoads"
+        arguments = list()
+        arguments.append("--groupnumber")
+        arguments.append(groupnumber)
+        arguments.append("--vtkfile")
+        arguments.append(vtkfilepath)
+        arguments.append("--resultdir")
+        resultdir = slicer.app.temporaryPath
+        arguments.append(resultdir)
+        arguments.append("--modelfile")
+        arguments.append(modelfile)
+
+        #     Call the CLI
+        process = qt.QProcess()
+        print "Calling " + os.path.basename(computeShapeOALoads)
+        process.start(computeShapeOALoads, arguments)
+        process.waitForStarted()
+        # print "state: " + str(process.state())
+        process.waitForFinished()
+        # print "error: " + str(process.error())
 
     # Function to compute the TMJ OA of a patient
-    def computeOAIndex(self, dict):
+    def computeOAIndex(self, keyList):
         OAIndexList = list()
-        for key in dict.keys():
+        for key in keyList:
             ShapeOAVectorLoadsPath = slicer.app.temporaryPath + "/ShapeOAVectorLoadsG" + str(key) + ".csv"
             if not os.path.exists(ShapeOAVectorLoadsPath):
                 return
@@ -1444,7 +1451,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
             OAIndexList.append(math.sqrt(sum)/tableShapeOAVectorLoads.GetNumberOfRows())
         # print OAIndexList
         resultGroup = OAIndexList.index(min(OAIndexList)) + 1
-        print "RESULT: " + str(resultGroup)
+        # print "RESULT: " + str(resultGroup)
         return resultGroup
 
     # Function to remove the shape model of each group
