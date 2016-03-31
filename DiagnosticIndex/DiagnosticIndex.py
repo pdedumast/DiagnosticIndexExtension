@@ -45,6 +45,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.groupSelected = set()
         self.dictShapeModels = dict()
         self.patientList = list()
+        self.dictResult = dict()
 
         # Interface
         loader = qt.QUiLoader()
@@ -97,6 +98,9 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_applyTMJtype = self.logic.get('pushButton_applyTMJtype')
         #          Tab: Result / Analysis
         self.collapsibleButton_Result = self.logic.get('CollapsibleButton_Result')
+        self.tableWidget_result = self.logic.get('tableWidget_result')
+        self.pushButton_exportResult = self.logic.get('pushButton_exportResult')
+        self.directoryButton_exportResult = self.logic.get('DirectoryButton_exportResult')
 
         # Widget Configuration
 
@@ -138,7 +142,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         headerTreeView.setResizeMode(sceneModel.colorColumn,qt.QHeaderView.ResizeToContents)
         headerTreeView.setResizeMode(sceneModel.opacityColumn,qt.QHeaderView.ResizeToContents)
 
-        #     table configuration
+        #     configuration of the table for preview VTK file
         self.tableWidget_VTKFiles.setColumnCount(4)
         self.tableWidget_VTKFiles.setHorizontalHeaderLabels([' VTK files ', ' Group ', ' Visualization ', 'Color'])
         self.tableWidget_VTKFiles.setColumnWidth(0, 200)
@@ -149,6 +153,16 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         horizontalHeader.setResizeMode(2,qt.QHeaderView.ResizeToContents)
         horizontalHeader.setResizeMode(3,qt.QHeaderView.ResizeToContents)
         self.tableWidget_VTKFiles.verticalHeader().setVisible(False)
+
+        #     configuration of the table to display the result
+        self.tableWidget_result.setColumnCount(2)
+        self.tableWidget_result.setHorizontalHeaderLabels([' VTK files ', ' Assigned Group '])
+        self.tableWidget_result.setColumnWidth(0, 300)
+        horizontalHeader = self.tableWidget_result.horizontalHeader()
+        horizontalHeader.setStretchLastSection(False)
+        horizontalHeader.setResizeMode(0,qt.QHeaderView.Stretch)
+        horizontalHeader.setResizeMode(1,qt.QHeaderView.ResizeToContents)
+        self.tableWidget_result.verticalHeader().setVisible(False)
 
         # ---------------------------------------------------- #
         #                Connection
@@ -187,6 +201,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         #          Tab: Result / Analysis
         self.collapsibleButton_Result.connect('clicked()',
                                               lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_Result))
+        self.pushButton_exportResult.connect('clicked()', self.onExportResult)
 
         slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onCloseScene)
 
@@ -325,7 +340,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                 return
 
         # Save the CSV File
-        self.logic.creationCSVFile(directory, 'VTKFilesToCreateClassificationGroups.csv', self.dictCSVFile, False)
+        self.logic.creationCSVFile(directory, 'VTKFilesToCreateClassificationGroups.csv', self.dictCSVFile, "tocreateNCG")
 
         # Re-Initialization of the first tab
         self.spinBox_group.setMaximum(1)
@@ -836,7 +851,10 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                 self.logic.computeShapeOALoads(key, patient, value)
 
             # Compute the TMJ OA type of a patient
-            resultgroup = self.logic.computeOAIndex(self.dictGroups)
+            resultgroup = self.logic.computeOAIndex(self.dictGroups.keys())
+
+            # Display the result in the next tab "Result/Analysis"
+            self.displayResult(resultgroup, os.path.basename(patient))
 
         # Remove the CSV file containing the Shape OA Vector Loads
         self.logic.removeShapeOALoadsCSVFile(self.dictShapeModels.keys())
@@ -856,6 +874,52 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
             #      Remove the data previously created
             self.logic.removeDataAfterNCG(self.dictGroups)
+
+    # ---------------------------------------------------- #
+    #               Tab: Result / Analysis
+    # ---------------------------------------------------- #
+
+    # Function to display the result in a table
+    def displayResult(self, resultGroup, VTKfilename):
+        row = self.tableWidget_result.rowCount
+        self.tableWidget_result.setRowCount(row + 1)
+        # Column 0: VTK file
+        labelVTKFile = qt.QLabel(VTKfilename)
+        labelVTKFile.setAlignment(0x84)
+        self.tableWidget_result.setCellWidget(row, 0, labelVTKFile)
+        # Column 1: Assigned Group
+        labelAssignedGroup = qt.QLabel(resultGroup)
+        labelAssignedGroup.setAlignment(0x84)
+        self.tableWidget_result.setCellWidget(row, 1, labelAssignedGroup)
+
+    # Function to export the result in a CSV File
+    def onExportResult(self):
+        # Directory
+        directory = self.directoryButton_exportResult.directory.encode('utf-8')
+        basename = "OAResult.csv"
+        # Message if the csv file already exists
+        filepath = directory + "/" + basename
+        messageBox = ctk.ctkMessageBox()
+        messageBox.setWindowTitle(' /!\ WARNING /!\ ')
+        messageBox.setIcon(messageBox.Warning)
+        if os.path.exists(filepath):
+            messageBox.setText('File ' + filepath + ' already exists!')
+            messageBox.setInformativeText('Do you want to replace it ?')
+            messageBox.setStandardButtons( messageBox.No | messageBox.Yes)
+            choice = messageBox.exec_()
+            if choice == messageBox.No:
+                return
+
+        # Directory
+        directory = self.directoryButton_exportResult.directory.encode('utf-8')
+
+        # Store data in a dictionary
+        self.logic.creationCSVFileForResult(self.tableWidget_result, directory, basename)
+
+        # Message in the python console and for the user
+        print "Export CSV File: " + filepath
+        slicer.util.delayDisplay("Result saved")
+
 
 # ------------------------------------------------------------------------------------
 #                                   ALGORITHM
@@ -1298,21 +1362,21 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
     #          - Second column: group associated to this vtk file
     #    - If saveH5 is True, this CSV file will contain a New Classification Group, a thrid column is then added
     #          - Thrid column: path of the shape model of each group
-    def creationCSVFile(self, directory, CSVbasename, dictForCSV, saveH5):
+    def creationCSVFile(self, directory, CSVbasename, dictForCSV, option):
         CSVFilePath = directory + "/" + CSVbasename
         file = open(CSVFilePath, 'w')
         cw = csv.writer(file, delimiter=',')
-        if saveH5 == False:
+        if option == "tocreateNCG":
             cw.writerow(['VTK Files', 'Group'])
-        else:
+        elif option == "NCG":
             cw.writerow(['VTK Files', 'Group', 'H5 Path'])
         for key, value in dictForCSV.items():
-            for VTKPath in value:
-                if saveH5 == False:
-                    cw.writerow([VTKPath, str(key)])
-                else:
+            for vtkFile in value:
+                if option == "tocreateNCG":
+                    cw.writerow([vtkFile, str(key)])
+                elif option == "NCG":
                     h5Path = directory + "/G" + str(key) + ".h5"
-                    cw.writerow([VTKPath, str(key), h5Path])
+                    cw.writerow([vtkFile, str(key), h5Path])
         file.close()
 
     # Function to save the data of the new Classification Groups in the directory given by the user
@@ -1354,7 +1418,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
             shutil.copyfile(oldh5path, newh5path)
 
         # Save the CSV file containing all the data useful in order to compute OAIndex of a patient
-        self.creationCSVFile(directory, basename, dictForCSV, True)
+        self.creationCSVFile(directory, basename, dictForCSV, "NCG")
 
     # Function to remove in the temporary directory all the data useless after to do a export of the new Classification Groups
     def removeDataAfterNCG(self, dict):
@@ -1461,6 +1525,21 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
             if os.path.exists(shapeOALoadsPath):
                 os.remove(shapeOALoadsPath)
 
+    def creationCSVFileForResult(self, table, directory, CSVbasename):
+        CSVFilePath = directory + "/" + CSVbasename
+        file = open(CSVFilePath, 'w')
+        cw = csv.writer(file, delimiter=',')
+        cw.writerow(['VTK Files', 'Assigned Group'])
+        for row in range(0,table.rowCount):
+            # Recovery of the filename of vtk file
+            qlabel = table.cellWidget(row, 0)
+            vtkFile = qlabel.text
+            # Recovery of the assigned group
+            qlabel = table.cellWidget(row, 1)
+            assignedGroup = qlabel.text
+
+            # Write the result in the CSV File
+            cw.writerow([vtkFile, str(assignedGroup)])
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
     pass
