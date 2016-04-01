@@ -326,6 +326,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     def onExportForCreationCSVFile(self):
         # Path of the csv file
         directory = self.directoryButton_exportCSVFile.directory.encode('utf-8')
+        basename = 'Groups.csv'
+        filepath = directory + "/" + basename
 
         # Message if the csv file already exists
         messageBox = ctk.ctkMessageBox()
@@ -340,7 +342,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                 return
 
         # Save the CSV File
-        self.logic.creationCSVFile(directory, 'VTKFilesToCreateClassificationGroups.csv', self.dictCSVFile, "tocreateNCG")
+        self.logic.creationCSVFile(directory, basename, self.dictCSVFile, "tocreateNCG")
 
         # Re-Initialization of the first tab
         self.spinBox_group.setMaximum(1)
