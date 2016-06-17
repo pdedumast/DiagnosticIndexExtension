@@ -95,7 +95,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.MRMLNodeComboBox_VTKInputData = self.logic.get('MRMLNodeComboBox_VTKInputData')
         self.pathLineEdit_CSVInputData = self.logic.get('PathLineEdit_CSVInputData')
         self.checkBox_fileInGroups = self.logic.get('checkBox_fileInGroups')
-        self.pushButton_applyTMJtype = self.logic.get('pushButton_applyTMJtype')
+        self.pushButton_applyOAIndex = self.logic.get('pushButton_applyOAIndex')
         #          Tab: Result / Analysis
         self.collapsibleButton_Result = self.logic.get('CollapsibleButton_Result')
         self.tableWidget_result = self.logic.get('tableWidget_result')
@@ -164,9 +164,9 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         horizontalHeader.setResizeMode(1,qt.QHeaderView.ResizeToContents)
         self.tableWidget_result.verticalHeader().setVisible(False)
 
-        # ---------------------------------------------------- #
-        #                Connection
-        # ---------------------------------------------------- #
+        # --------------------------------------------------------- #
+        #                       Connection                          #
+        # --------------------------------------------------------- #
         #          Tab: Creation of CSV File for Classification Groups
         self.collapsibleButton_creationCSVFile.connect('clicked()',
                                                        lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_creationCSVFile))
@@ -197,7 +197,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.MRMLNodeComboBox_VTKInputData.connect('currentNodeChanged(vtkMRMLNode*)', self.onVTKInputData)
         self.checkBox_fileInGroups.connect('clicked()', self.onCheckFileInGroups)
         self.pathLineEdit_CSVInputData.connect('currentPathChanged(const QString)', self.onCSVInputData)
-        self.pushButton_applyTMJtype.connect('clicked()', self.onComputeTMJtype)
+        self.pushButton_applyOAIndex.connect('clicked()', self.onComputeOAIndex)
         #          Tab: Result / Analysis
         self.collapsibleButton_Result.connect('clicked()',
                                               lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_Result))
@@ -235,7 +235,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             selectedCollapsibleButton.setChecked(True)
 
     # ---------------------------------------------------- #
-    # Tab: Creation of CSV File for Classification Groups
+    # Tab: Creation of CSV File for Classification Groups  #
     # ---------------------------------------------------- #
 
     # Function in order to manage the display of these three buttons:
@@ -364,7 +364,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pathLineEdit_NewGroups.setCurrentPath(filepath)
 
     # ---------------------------------------------------- #
-    #     Tab: Creation of New Classification Groups
+    #     Tab: Creation of New Classification Groups       #
     # ---------------------------------------------------- #
 
     # Function to read the CSV file containing all the vtk filepaths needed to create the new Classification Groups
@@ -625,7 +625,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pathLineEdit_selectionClassificationGroups.setCurrentPath(CSVfilePath)
 
     # ---------------------------------------------------- #
-    #        Tab: Selection of Classification Groups
+    #        Tab: Selection of Classification Groups       #
     # ---------------------------------------------------- #
 
     # Function to select the Classification Groups
@@ -672,7 +672,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.spinBox_healthyGroup.setMaximum(len(self.dictGroups))
 
     # ---------------------------------------------------- #
-    #     Tab: Preview of Classification Groups
+    #     Tab: Preview of Classification Groups            #
     # ---------------------------------------------------- #
 
     # Function to preview the Classification Groups in Slicer
@@ -720,7 +720,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         threeDView.resetFocalPoint()
 
     # ---------------------------------------------------- #
-    #               Tab: Select Input Data
+    #               Tab: Select Input Data                 #
     # ---------------------------------------------------- #
 
     # Function to select the vtk Input Data
@@ -800,20 +800,20 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         # Handle checkbox "File already in the groups"
         self.enableOption()
 
-    # Function to define the TMJ OA type of the patient
+    # Function to define the OA index type of the patient
     #    *** CROSS VALIDATION:
     #    - If the user specified that the vtk file was in the groups used to create the Classification Groups:
     #           - Save the current classification groups
     #           - Re-compute the new classification groups without this file
-    #           - Define the TMJ OA type of a patient
+    #           - Define the OA index type of a patient
     #           - Recovery the classification groups
-    #    *** Define the TMJ OA of a patient:
+    #    *** Define the OA index of a patient:
     #    - Else:
     #           - Compute the ShapeOALoads for each group
-    #           - Compute the TMJ OA type of a patient
-    def onComputeTMJtype(self):
-        print "------ Compute the TMJ Type of a patient ------"
-        # Check if the user gave all the data used to compute the TMJ OA type of the patient:
+    #           - Compute the OA index type of a patient
+    def onComputeOAIndex(self):
+        print "------ Compute the OA index Type of a patient ------"
+        # Check if the user gave all the data used to compute the OA index type of the patient:
         # - VTK input data or CSV input data
         # - CSV file containing the Classification Groups
         if not os.path.exists(self.pathLineEdit_selectionClassificationGroups.currentPath):
@@ -845,14 +845,14 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             #      Re-compute the new classification groups
             self.onComputeNewClassificationGroups()
 
-        # *** Define the TMJ OA type of a patient ***
+        # *** Define the OA index type of a patient ***
         # For each patient:
         for patient in self.patientList:
             # Compute the ShapeOALoads for each group
             for key, value in self.dictShapeModels.items():
                 self.logic.computeShapeOALoads(key, patient, value)
 
-            # Compute the TMJ OA type of a patient
+            # Compute the OA index type of a patient
             resultgroup = self.logic.computeOAIndex(self.dictGroups.keys())
 
             # Display the result in the next tab "Result/Analysis"
@@ -878,7 +878,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             self.logic.removeDataAfterNCG(self.dictGroups)
 
     # ---------------------------------------------------- #
-    #               Tab: Result / Analysis
+    #               Tab: Result / Analysis                 #
     # ---------------------------------------------------- #
 
     # Function to display the result in a table
@@ -923,9 +923,9 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         slicer.util.delayDisplay("Result saved")
 
 
-# ------------------------------------------------------------------------------------
-#                                   ALGORITHM
-# ------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------ #
+#                                   ALGORITHM                                          #
+# ------------------------------------------------------------------------------------ #
 
 
 class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
@@ -1266,7 +1266,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
     def buildShapeModel(self, groupnumber, vtkList):
         print "--- Build the shape model of the group " + str(groupnumber) + " ---"
 
-        # Call of saveModels used to build a shape model from a given list of meshes
+        # Call of saveModel used to build a shape model from a given list of meshes
         # Arguments:
         #  --groupnumber is the number of the group used to create the shape model
         #  --vtkfilelist is a list of vtk paths of one group that will be used to create the shape model
@@ -1470,9 +1470,9 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 value = dict.get(listSaveVTKFiles[0], None)
                 value.append(listSaveVTKFiles[1])
 
-    # Function in order to compute the shape OA loads of a shape model
+    # Function in order to compute the shape OA loads of a sample
     def computeShapeOALoads(self, groupnumber, vtkfilepath, modelfile):
-        # Call of loadModels used to build a shape model from a given list of meshes
+        # Call of computeShapeOALoads used to compute shape loads of a sample for the current shape model
         # Arguments:
         #  --vtkfile: Sample Input Data (VTK file path)
         #  --resultdir: The path where the newly build model should be saved
@@ -1501,7 +1501,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         process.waitForFinished()
         # print "error: " + str(process.error())
 
-    # Function to compute the TMJ OA of a patient
+    # Function to compute the OA index of a patient
     def computeOAIndex(self, keyList):
         OAIndexList = list()
         for key in keyList:
