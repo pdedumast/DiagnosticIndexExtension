@@ -49,10 +49,10 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
         # Interface
         loader = qt.QUiLoader()
-        moduleName = 'DiagnosticIndex'
-        scriptedModulesPath = eval('slicer.modules.%s.path' % moduleName.lower())
+        self.moduleName = 'DiagnosticIndex'
+        scriptedModulesPath = eval('slicer.modules.%s.path' % self.moduleName.lower())
         scriptedModulesPath = os.path.dirname(scriptedModulesPath)
-        path = os.path.join(scriptedModulesPath, 'Resources', 'UI', '%s.ui' % moduleName)
+        path = os.path.join(scriptedModulesPath, 'Resources', 'UI', '%s.ui' % self.moduleName)
         qfile = qt.QFile(path)
         qfile.open(qt.QFile.ReadOnly)
 
@@ -1273,7 +1273,11 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         #  --resultdir is the path where the newly build model should be saved
 
         #     Creation of the command line
-        saveModel = "/Users/lpascal/Documents/DIAGNOSTICINDEX/Code/saveModel/saveModel-build/bin/saveModel"
+        scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
+        scriptedModulesPath = os.path.dirname(scriptedModulesPath)
+        libPath = os.path.join(scriptedModulesPath)
+        sys.path.insert(0, libPath)
+        saveModel = os.path.join(scriptedModulesPath, '../hidden-cli-modules/saveModel')
         arguments = list()
         arguments.append("--groupnumber")
         arguments.append(groupnumber)
@@ -1308,7 +1312,8 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         #                       - randomsample.vtk
 
         #     Creation of the command line
-        vtkBasicSamplingExample = "/Users/lpascal/Applications/Statismo/statismo-build-static/Statismo-build/bin/vtkBasicSamplingExample"
+#        vtkBasicSamplingExample = "/Users/lpascal/Applications/Statismo/statismo-build-static/Statismo-build/bin/vtkBasicSamplingExample"
+        vtkBasicSamplingExample = "/Users/lpascal/Documents/DIAGNOSTICINDEX/Code/DiagnosticIndexExtension-build/statismo-build/Statismo-build/bin/vtkBasicSamplingExample"
         arguments = list()
         h5path = slicer.app.temporaryPath + "/G" + str(key) + ".h5"
         modelname = h5path
@@ -1480,7 +1485,11 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         #  --modelfile: Shape model of one group (H5 file path)
 
         #     Creation of the command line
-        computeShapeOALoads = "/Users/lpascal/Documents/DIAGNOSTICINDEX/Code/computeShapeOALoads/computeShapeOALoads-build/bin/computeShapeOALoads"
+        scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
+        scriptedModulesPath = os.path.dirname(scriptedModulesPath)
+        libPath = os.path.join(scriptedModulesPath)
+        sys.path.insert(0, libPath)
+        computeShapeOALoads = os.path.join(scriptedModulesPath, '../hidden/cli-modules/computeShapeOALoads')
         arguments = list()
         arguments.append("--groupnumber")
         arguments.append(groupnumber)
