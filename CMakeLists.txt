@@ -73,6 +73,7 @@ option(${LOCAL_PROJECT_NAME}_SUPERBUILD "Build ${LOCAL_PROJECT_NAME} and the pro
 add_subdirectory(src/DiagnosticIndex)
 add_subdirectory(src/CLI/saveModel)
 add_subdirectory(src/CLI/computeShapeOALoads)
+add_subdirectory(src/CLI/computeMean)
 
 #-----------------------------------------------------------------------------
 set(CPACK_INSTALL_CMAKE_PROJECTS "${CPACK_INSTALL_CMAKE_PROJECTS};${CMAKE_BINARY_DIR};${EXTENSION_NAME};ALL;/")

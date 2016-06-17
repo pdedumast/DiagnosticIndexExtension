@@ -1273,11 +1273,12 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         #  --resultdir is the path where the newly build model should be saved
 
         #     Creation of the command line
-        scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
-        scriptedModulesPath = os.path.dirname(scriptedModulesPath)
-        libPath = os.path.join(scriptedModulesPath)
-        sys.path.insert(0, libPath)
-        saveModel = os.path.join(scriptedModulesPath, '../hidden-cli-modules/saveModel')
+        #scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
+        #scriptedModulesPath = os.path.dirname(scriptedModulesPath)
+        #libPath = os.path.join(scriptedModulesPath)
+        #sys.path.insert(0, libPath)
+        #saveModel = os.path.join(scriptedModulesPath, '../hidden-cli-modules/saveModel')
+        saveModel = "/Users/lpascal/Desktop/test/DiagnosticIndexExtension-build/bin/saveModel"
         arguments = list()
         arguments.append("--groupnumber")
         arguments.append(groupnumber)
@@ -1303,48 +1304,40 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
     def computeMean(self, key):
         print "--- Compute the mean of the group " + str(key) + " ---"
 
-        # Call of vtkBasicSamplingExample which will save the mean of the group contained in the hdf5 file
+        # Call of computeMean used to compute a mean from a shape model
         # Arguments:
-        #  First argument:   path of the hdf5 file created previously
-        #  Second argument:  path of the directory where the 3 following vtk files will be save:
-        #                       - mean.vtk
-        #                       - samplePC1.vtk
-        #                       - randomsample.vtk
+        #  --groupnumber is the number of the group used to create the shape model
+        #  --resultdir is the path where the newly build model should be saved
+        #  --shapemodel: Shape model of one group (H5 file path)
 
         #     Creation of the command line
-#        vtkBasicSamplingExample = "/Users/lpascal/Applications/Statismo/statismo-build-static/Statismo-build/bin/vtkBasicSamplingExample"
-        vtkBasicSamplingExample = "/Users/lpascal/Documents/DIAGNOSTICINDEX/Code/DiagnosticIndexExtension-build/statismo-build/Statismo-build/bin/vtkBasicSamplingExample"
+        #scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
+        #scriptedModulesPath = os.path.dirname(scriptedModulesPath)
+        #libPath = os.path.join(scriptedModulesPath)
+        #sys.path.insert(0, libPath)
+        #computeMean = os.path.join(scriptedModulesPath, '../hidden/cli-modules/computeMean')
+        computeMean = "/Users/lpascal/Desktop/test/DiagnosticIndexExtension-build/bin/computeMean"
         arguments = list()
-        h5path = slicer.app.temporaryPath + "/G" + str(key) + ".h5"
-        modelname = h5path
-        arguments.append(modelname)
+        arguments.append("--groupnumber")
+        arguments.append(key)
+        arguments.append("--resultdir")
         resultdir = slicer.app.temporaryPath
         arguments.append(resultdir)
+        arguments.append("--shapemodel")
+        h5path = slicer.app.temporaryPath + "/G" + str(key) + ".h5"
+        arguments.append(h5path)
 
         #     Call the executable
         process = qt.QProcess()
-        print "Calling " + os.path.basename(vtkBasicSamplingExample)
-        process.start(vtkBasicSamplingExample, arguments)
+        print "Calling " + os.path.basename(computeMean)
+        process.start(computeMean, arguments)
         process.waitForStarted()
         # print "state: " + str(process2.state())
         process.waitForFinished()
         # print "error: " + str(process2.error())
 
-        # Rename of the mean of the group
-        oldname = slicer.app.temporaryPath + '/mean.vtk'
-        newname = slicer.app.temporaryPath + '/meanGroup' + str(key) + '.vtk'
-        os.rename(oldname, newname)
-
     # Function to remove in the temporary directory all the data used to create the mean for each group
     def removeDataUsedToCreateMean(self, value):
-        # remove of samplePC1.vtk and randomsample.vtk
-        path = slicer.app.temporaryPath + '/samplePC1.vtk'
-        if os.path.exists(path):
-            os.remove(path)
-        path = slicer.app.temporaryPath + '/randomsample.vtk'
-        if os.path.exists(path):
-            os.remove(path)
-
         # remove of all the vtk file
         for vtkFile in value:
             filepath = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
@@ -1476,20 +1469,21 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 value.append(listSaveVTKFiles[1])
 
     # Function in order to compute the shape OA loads of a sample
-    def computeShapeOALoads(self, groupnumber, vtkfilepath, modelfile):
+    def computeShapeOALoads(self, groupnumber, vtkfilepath, shapemodel):
         # Call of computeShapeOALoads used to compute shape loads of a sample for the current shape model
         # Arguments:
         #  --vtkfile: Sample Input Data (VTK file path)
         #  --resultdir: The path where the newly build model should be saved
         #  --groupnumber: The number of the group used to create the shape model
-        #  --modelfile: Shape model of one group (H5 file path)
+        #  --shapemodel: Shape model of one group (H5 file path)
 
         #     Creation of the command line
-        scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
-        scriptedModulesPath = os.path.dirname(scriptedModulesPath)
-        libPath = os.path.join(scriptedModulesPath)
-        sys.path.insert(0, libPath)
-        computeShapeOALoads = os.path.join(scriptedModulesPath, '../hidden/cli-modules/computeShapeOALoads')
+        #scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
+        #scriptedModulesPath = os.path.dirname(scriptedModulesPath)
+        #libPath = os.path.join(scriptedModulesPath)
+        #sys.path.insert(0, libPath)
+        #computeShapeOALoads = os.path.join(scriptedModulesPath, '../hidden/cli-modules/computeShapeOALoads')
+        computeShapeOALoads = "/Users/lpascal/Desktop/test/DiagnosticIndexExtension-build/bin/computeShapeOALoads"
         arguments = list()
         arguments.append("--groupnumber")
         arguments.append(groupnumber)
@@ -1498,8 +1492,8 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         arguments.append("--resultdir")
         resultdir = slicer.app.temporaryPath
         arguments.append(resultdir)
-        arguments.append("--modelfile")
-        arguments.append(modelfile)
+        arguments.append("--shapemodel")
+        arguments.append(shapemodel)
 
         #     Call the CLI
         process = qt.QProcess()

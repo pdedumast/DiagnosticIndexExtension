@@ -18,14 +18,14 @@ int main(int argc, char ** argv)
     
     if(argc < 9)
     {
-        std::cout << "Usage " << argv[0] << " [--groupnumber <int>] [--modelfile <std::string>] [--vtkfile <std::string>] [--resultdir <std::string>]" << std::endl;
+        std::cout << "Usage " << argv[0] << " [--groupnumber <int>] [--shapemodel <std::string>] [--vtkfile <std::string>] [--resultdir <std::string>]" << std::endl;
         return 1;
     }
 
     
     // Load h5 file
     RepresenterType* representer = RepresenterType::Create();
-    boost::scoped_ptr<StatisticalModelType> model(StatisticalModelType::Load(representer, modelfile));
+    boost::scoped_ptr<StatisticalModelType> model(StatisticalModelType::Load(representer, shapemodel));
     
     // Load VTK data into program
     vtkSmartPointer<vtkPolyDataReader> reader = vtkSmartPointer<vtkPolyDataReader>::New();

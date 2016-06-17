@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <executable>
-  <title>loadModels</title>
-  <description>To compute shape models. </description>
+  <category>TEST</category>
+  <title>computeMean</title>
+  <description>To compute mean from a HDF5 file.</description>
   <contributor>Laura Pascal</contributor>
 
   <parameters>
@@ -12,24 +13,16 @@
         <name>groupnumber</name>
         <label>Group Number</label>
         <longflag>--groupnumber</longflag>
-        <flag>-g</flag>
+        <flag>g</flag>
         <description><![CDATA[The number of the group]]></description>
     </integer>
 
     <geometry fileExtensions=".h5" multiple="false" >
         <name>shapemodel</name>
-        <label>Model File</label>
+        <label>Shape model</label>
         <longflag>--shapemodel</longflag>
         <flag>-m</flag>
-        <description><![CDATA[.h5 Input file]]></description>
-    </geometry>
-
-    <geometry fileExtensions=".vtk" multiple="false" >
-        <name>vtkfile</name>
-        <label>VTK File</label>
-        <longflag>--vtkfile</longflag>
-        <flag>-v</flag>
-        <description><![CDATA[.vtk Input file]]></description>
+        <description><![CDATA[.h5 Input files]]></description>
     </geometry>
 
     <directory>
