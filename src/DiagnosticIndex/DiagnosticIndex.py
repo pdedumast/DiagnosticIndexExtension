@@ -272,6 +272,12 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
         # Add the paths of vtk files of the dictionary
         self.logic.addGroupToDictionary(self.dictCSVFile, directory, self.directoryList, self.spinBox_group.value)
+        condition = self.logic.checkSeveralMeshInDict(self.dictCSVFile)
+
+        if not condition:
+            # Remove the paths of vtk files of the dictionary
+            self.logic.removeGroupToDictionary(self.dictCSVFile, self.directoryList, self.spinBox_group.value)
+            return
 
         # Increment of the number of the group in the spinbox
         self.spinBox_group.blockSignals(True)
@@ -342,7 +348,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                 return
 
         # Save the CSV File
-        self.logic.creationCSVFile(directory, basename, self.dictCSVFile, "tocreateNCG")
+        self.logic.creationCSVFile(directory, basename, self.dictCSVFile, "Groups")
 
         # Re-Initialization of the first tab
         self.spinBox_group.setMaximum(1)
@@ -388,11 +394,12 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         # Download the CSV file
         self.logic.table = self.logic.readCSVFile(self.pathLineEdit_NewGroups.currentPath)
         condition2 = self.logic.creationDictVTKFiles(self.dictVTKFiles)
+        condition3 = self.logic.checkSeveralMeshInDict(self.dictVTKFiles)
 
         # If the file is not conformed:
         #    Re-initialization of the dictionary containing all the data
         #    which will be used to create a new Classification Groups
-        if not condition2:
+        if not (condition2 and condition3):
             self.dictVTKFiles = dict()
             self.pathLineEdit_NewGroups.setCurrentPath(" ")
             return
@@ -535,15 +542,14 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             # Delete all the arrays in vtk file
             self.logic.deleteArrays(key, value)
 
-            if len(value) > 1:
-                # Compute the shape model of each group
-                self.logic.buildShapeModel(key, value)
+            # Compute the shape model of each group
+            self.logic.buildShapeModel(key, value)
 
-                # Compute the mean of each group thanks to Statismo
-                self.logic.computeMean(key)
+            # Compute the mean of each group thanks to Statismo
+            self.logic.computeMean(key)
 
-                # Remove the files previously created in the temporary directory
-                self.logic.removeDataUsedToCreateMean(value)
+            # Remove the files previously created in the temporary directory
+            self.logic.removeDataUsedToCreateMean(value)
 
             # Storage of the means for each group
             self.logic.storageMean(self.dictGroups, key)
@@ -1018,6 +1024,14 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
 
         return True
 
+    # Function to check if in each group there is at least more than one mesh
+    def checkSeveralMeshInDict(self, dict):
+        for key, value in dict.items():
+            if type(value) is not ListType or len(value) == 1:
+                slicer.util.errorDisplay('The group ' + str(key) + ' must contain more than one mesh.')
+                return False
+        return True
+
     # Function to store the shape models for each group in a dictionary
     #    - The function return True if all the paths exist, else False
     def creationDictShapeModel(self, dict):
@@ -1240,11 +1254,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 pointData.RemoveArray(0)
 
             # Creation of the path of the vtk file without arrays to save it in the temporary directory of Slicer
-            #    If there is just one file in the list, it is renamed meanGroupKey.vtk
-            if len(value) > 1:
-                filename = os.path.basename(vtkFile)
-            else:
-                filename = 'meanGroup' + str(key) + '.vtk'
+            filename = os.path.basename(vtkFile)
             filepath = slicer.app.temporaryPath + '/' + filename
 
             # Save the vtk file without array in the temporary directory in Slicer
@@ -1366,13 +1376,13 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         CSVFilePath = directory + "/" + CSVbasename
         file = open(CSVFilePath, 'w')
         cw = csv.writer(file, delimiter=',')
-        if option == "tocreateNCG":
+        if option == "Groups":
             cw.writerow(['VTK Files', 'Group'])
         elif option == "NCG":
             cw.writerow(['VTK Files', 'Group', 'H5 Path'])
         for key, value in dictForCSV.items():
             for vtkFile in value:
-                if option == "tocreateNCG":
+                if option == "Groups":
                     cw.writerow([vtkFile, str(key)])
                 elif option == "NCG":
                     h5Path = directory + "/G" + str(key) + ".h5"
