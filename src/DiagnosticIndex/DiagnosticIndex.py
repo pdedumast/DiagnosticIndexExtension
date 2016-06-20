@@ -532,7 +532,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
             # Remove the vtk files previously created in the temporary directory of Slicer
             for value in self.dictVTKFiles.values():
-                self.logic.removeDataUsedToCreateMean(value)
+                self.logic.removeDataVTKFiles(value)
 
     # Function to compute the new Classification Groups
     #    - Remove all the arrays of all the vtk files
@@ -545,14 +545,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             # Compute the shape model of each group
             self.logic.buildShapeModel(key, value)
 
-            # Compute the mean of each group thanks to Statismo
-            self.logic.computeMean(key)
-
-            # Remove the files previously created in the temporary directory
-            self.logic.removeDataUsedToCreateMean(value)
-
-            # Storage of the means for each group
-            self.logic.storageMean(self.dictGroups, key)
+            # Remove the vtk files used to create the shape model of each group
+            self.logic.removeDataVTKFiles(value)
 
             # Storage of the shape model for each group
             self.logic.storeShapeModel(self.dictShapeModels, key)
@@ -581,13 +575,6 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         if os.path.exists(CSVfilePath):
             filePathExisting.append(CSVfilePath)
 
-        #   Check if the mean VTK files exist
-        for key, value in self.dictGroups.items():
-            VTKFilename = os.path.basename(value)
-            VTKFilePath = directory + '/' + VTKFilename
-            if os.path.exists(VTKFilePath):
-                filePathExisting.append(VTKFilePath)
-
         #   Check if the shape model exist
         for key, value in self.dictShapeModels.items():
             modelFilename = os.path.basename(value)
@@ -612,20 +599,21 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             if choice == messageBox.No:
                 return
 
-        # Save the CSV File and the means of each group
-        self.logic.saveNewClassificationGroups('NewClassificationGroups.csv', directory, self.dictGroups)
+        # Save the CSV File and the shape model of each group
+        self.logic.saveNewClassificationGroups('NewClassificationGroups.csv', directory, self.dictShapeModels)
 
-        # Remove the shape model (GX.h5) and the mean vtk file (meanGroupX.vtk) of each group
-        self.logic.removeDataAfterNCG(self.dictGroups)
-
-        # Re-Initialization of the dictionary containing the path of the mean group
-        self.dictGroups = dict()
+        # Remove the shape model (GX.h5) of each group
+        self.logic.removeDataAfterNCG(self.dictShapeModels)
 
         # Re-Initialization of the dictionary containing the path of the shape model of each group
         self.dictShapeModels = dict()
 
         # Message for the user
         slicer.util.delayDisplay("Files Saved")
+
+        # Disable the option to export the new data
+        self.directoryButton_exportNewClassification.setDisabled(True)
+        self.pushButton_exportNewClassification.setDisabled(True)
 
         # Load automatically the CSV file in the pathline in the next tab "Selection of Classification Groups"
         self.pathLineEdit_selectionClassificationGroups.setCurrentPath(CSVfilePath)
@@ -637,7 +625,6 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     # Function to select the Classification Groups
     def onSelectionClassificationGroups(self):
         # Re-initialization of the dictionary containing the Classification Groups
-        self.dictGroups = dict()
         self.dictShapeModels = dict()
 
         # Check if the path exists:
@@ -654,16 +641,14 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
         # Read CSV File:
         self.logic.table = self.logic.readCSVFile(self.pathLineEdit_selectionClassificationGroups.currentPath)
-        condition2 = self.logic.creationDictVTKFiles(self.dictGroups)
         condition3 = self.logic.creationDictShapeModel(self.dictShapeModels)
 
-        # Check if there is one VTK Files per group
-        condition4 = self.logic.checkCSVFile(self.dictGroups)
+        # Check if there is one H5 file per group
+        condition4 = self.logic.checkCSVFile(self.dictShapeModels)
 
         #    If the file is not conformed:
         #    Re-initialization of the dictionary containing the Classification Groups
-        if not (condition2 and condition3 and condition4):
-            self.dictGroups = dict()
+        if not (condition3 and condition4):
             self.dictShapeModels = dict()
             self.pathLineEdit_selectionClassificationGroups.setCurrentPath(" ")
             return
@@ -675,7 +660,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
         # Configuration of the spinbox specify the healthy group
         #      Set the Maximum value of spinBox_healthyGroup at the maximum number groups
-        self.spinBox_healthyGroup.setMaximum(len(self.dictGroups))
+        self.spinBox_healthyGroup.setMaximum(len(self.dictShapeModels))
 
     # ---------------------------------------------------- #
     #     Tab: Preview of Classification Groups            #
@@ -686,6 +671,13 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     #    - The healthy group is white and the others are red
     def onPreviewClassificationGroups(self):
         print "------ Preview of the Classification Groups in Slicer ------"
+
+        for group, h5path in self.dictShapeModels.items():
+            # Compute the mean of each group thanks to Statismo
+            self.logic.computeMean(group, h5path)
+
+            # Storage of the means for each group
+            self.logic.storageMean(self.dictGroups, group)
 
         # If the user doesn't specify the healthy group
         #     error message for the user
@@ -844,9 +836,6 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             dictShapeModelsTemp = dict()
             dictShapeModelsTemp = self.dictShapeModels
             self.dictShapeModels = dict()
-            dictGroupsTemp = dict()
-            dictGroupsTemp = self.dictGroups
-            self.dictGroups = dict()
 
             #      Re-compute the new classification groups
             self.onComputeNewClassificationGroups()
@@ -877,7 +866,6 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                                           'add')
 
             #      Recovery the Classification Groups previously saved
-            self.dictGroups = dictGroupsTemp
             self.dictShapeModels = dictShapeModelsTemp
 
             #      Remove the data previously created
@@ -1036,10 +1024,10 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
     #    - The function return True if all the paths exist, else False
     def creationDictShapeModel(self, dict):
         for i in range(0, self.table.GetNumberOfRows()):
-            if not os.path.exists(self.table.GetValue(i,2).ToString()):
+            if not os.path.exists(self.table.GetValue(i,0).ToString()):
                 slicer.util.errorDisplay('H5 file not found, path not good at lign ' + str(i+2))
                 return False
-            dict[self.table.GetValue(i,1).ToInt()] = self.table.GetValue(i,2).ToString()
+            dict[self.table.GetValue(i,1).ToInt()] = self.table.GetValue(i,0).ToString()
 
         # Check
         # print "Number of Groups in CSV Files: " + str(len(dict))
@@ -1311,8 +1299,8 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         # print "error: " + str(process.error())
 
     # Function to compute the mean between all the mesh-files contained in one group
-    def computeMean(self, key):
-        print "--- Compute the mean of the group " + str(key) + " ---"
+    def computeMean(self, group, h5path):
+        print "--- Compute the mean of the group " + str(group) + " ---"
 
         # Call of computeMean used to compute a mean from a shape model
         # Arguments:
@@ -1329,12 +1317,11 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         computeMean = "/Users/lpascal/Desktop/test/DiagnosticIndexExtension-build/bin/computeMean"
         arguments = list()
         arguments.append("--groupnumber")
-        arguments.append(key)
+        arguments.append(group)
         arguments.append("--resultdir")
         resultdir = slicer.app.temporaryPath
         arguments.append(resultdir)
         arguments.append("--shapemodel")
-        h5path = slicer.app.temporaryPath + "/G" + str(key) + ".h5"
         arguments.append(h5path)
 
         #     Call the executable
@@ -1347,7 +1334,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         # print "error: " + str(process2.error())
 
     # Function to remove in the temporary directory all the data used to create the mean for each group
-    def removeDataUsedToCreateMean(self, value):
+    def removeDataVTKFiles(self, value):
         # remove of all the vtk file
         for vtkFile in value:
             filepath = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
@@ -1379,14 +1366,14 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         if option == "Groups":
             cw.writerow(['VTK Files', 'Group'])
         elif option == "NCG":
-            cw.writerow(['VTK Files', 'Group', 'H5 Path'])
+            cw.writerow(['H5 Path', 'Group'])
         for key, value in dictForCSV.items():
-            for vtkFile in value:
-                if option == "Groups":
-                    cw.writerow([vtkFile, str(key)])
-                elif option == "NCG":
-                    h5Path = directory + "/G" + str(key) + ".h5"
-                    cw.writerow([vtkFile, str(key), h5Path])
+            if type(value) is ListType:
+                for vtkFile in value:
+                    if option == "Groups":
+                        cw.writerow([vtkFile, str(key)])
+            elif option == "NCG":
+                cw.writerow([value, str(key)])
         file.close()
 
     # Function to save the data of the new Classification Groups in the directory given by the user
@@ -1396,36 +1383,15 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
     #               - First column: the paths of mean vtk file of each group
     #               - Second column: the groups associated
     #               - Third column: the paths of the shape model of each group
-    def saveNewClassificationGroups(self, basename, directory, dictGroups):
+    def saveNewClassificationGroups(self, basename, directory, dictShapeModels):
         dictForCSV = dict()
-        for key, value in dictGroups.items():
-            # Save the mean vtk files of each groups
-            if os.path.exists(value):
-                #    Read VTK File
-                reader = vtk.vtkDataSetReader()
-                reader.SetFileName(value)
-                reader.ReadAllVectorsOn()
-                reader.ReadAllScalarsOn()
-                reader.Update()
-                polyData = reader.GetOutput()
-
-                #    Creation of the path of the vtk file
-                VTKFilename = os.path.basename(value)
-                VTKFilePath = directory + '/' + VTKFilename
-
-                #    Save the vtk file
-                self.saveVTKFile(polyData, VTKFilePath)
-
-                #    Fill a dictionary which will be used to created the CSV file containing the Classification Groups
-                valueList = list()
-                valueList.append(VTKFilePath)
-                dictForCSV[key] = valueList
-
+        for key, value in dictShapeModels.items():
             # Save the shape model (h5 file) of each group
             h5Basename = "G" + str(key) + ".h5"
             oldh5path = slicer.app.temporaryPath + "/" + h5Basename
             newh5path = directory + "/" + h5Basename
             shutil.copyfile(oldh5path, newh5path)
+            dictForCSV[key] = newh5path
 
         # Save the CSV file containing all the data useful in order to compute OAIndex of a patient
         self.creationCSVFile(directory, basename, dictForCSV, "NCG")
@@ -1437,11 +1403,6 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
             h5Path = slicer.app.temporaryPath + "/G" + str(key) + ".h5"
             if os.path.exists(h5Path):
                 os.remove(h5Path)
-
-            # Remove of the mean of each group
-            meanPath = slicer.app.temporaryPath + "/meanGroup" + str(key) + ".vtk"
-            if os.path.exists(meanPath):
-                os.remove(meanPath)
 
     # Function to make some action on a dictionary
     def actionOnDictionary(self, dict, file, listSaveVTKFiles, action):
