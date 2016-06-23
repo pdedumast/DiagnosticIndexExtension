@@ -1,2 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
+add_subdirectory(CLI/saveModel)
+add_subdirectory(CLI/computeShapeOALoads)
+add_subdirectory(CLI/computeMean)

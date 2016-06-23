@@ -64,16 +64,15 @@ include(${SlicerExecutionModel_USE_FILE})
 include(${GenerateCLP_USE_FILE})
 
 #-----------------------------------------------------------------------------
-include(${CMAKE_CURRENT_SOURCE_DIR}/SuperBuild.cmake)
-
-#-----------------------------------------------------------------------------
 option(${LOCAL_PROJECT_NAME}_SUPERBUILD "Build ${LOCAL_PROJECT_NAME} and the projects it depends on via SuperBuild.cmake." ON)
 
-#-----------------------------------------------------------------------------
-add_subdirectory(src/DiagnosticIndex)
-add_subdirectory(src/CLI/saveModel)
-add_subdirectory(src/CLI/computeShapeOALoads)
-add_subdirectory(src/CLI/computeMean)
+if(${${LOCAL_PROJECT_NAME}_SUPERBUILD})
+	#-----------------------------------------------------------------------------
+	include(${CMAKE_CURRENT_SOURCE_DIR}/SuperBuild.cmake)
+else()
+	include(${CMAKE_CURRENT_SOURCE_DIR}/DiagnosticIndex.cmake)
+endif()
+
 
 #-----------------------------------------------------------------------------
 set(CPACK_INSTALL_CMAKE_PROJECTS "${CPACK_INSTALL_CMAKE_PROJECTS};${CMAKE_BINARY_DIR};${EXTENSION_NAME};ALL;/")
