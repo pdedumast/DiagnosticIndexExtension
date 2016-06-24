@@ -1271,12 +1271,12 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         #  --resultdir is the path where the newly build model should be saved
 
         #     Creation of the command line
-        #scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
-        #scriptedModulesPath = os.path.dirname(scriptedModulesPath)
-        #libPath = os.path.join(scriptedModulesPath)
-        #sys.path.insert(0, libPath)
-        #saveModel = os.path.join(scriptedModulesPath, '../hidden-cli-modules/saveModel')
-        saveModel = "/Users/lpascal/Desktop/test/DiagnosticIndexExtension-build/bin/saveModel"
+        scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
+        scriptedModulesPath = os.path.dirname(scriptedModulesPath)
+        libPath = os.path.join(scriptedModulesPath)
+        sys.path.insert(0, libPath)
+        saveModel = os.path.join(scriptedModulesPath, '../hidden-cli-modules/saveModel')
+        #saveModel = "/Users/lpascal/Desktop/test/DiagnosticIndexExtension-build/bin/saveModel"
         arguments = list()
         arguments.append("--groupnumber")
         arguments.append(groupnumber)
@@ -1309,12 +1309,12 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         #  --shapemodel: Shape model of one group (H5 file path)
 
         #     Creation of the command line
-        #scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
-        #scriptedModulesPath = os.path.dirname(scriptedModulesPath)
-        #libPath = os.path.join(scriptedModulesPath)
-        #sys.path.insert(0, libPath)
-        #computeMean = os.path.join(scriptedModulesPath, '../hidden/cli-modules/computeMean')
-        computeMean = "/Users/lpascal/Desktop/test/DiagnosticIndexExtension-build/bin/computeMean"
+        scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
+        scriptedModulesPath = os.path.dirname(scriptedModulesPath)
+        libPath = os.path.join(scriptedModulesPath)
+        sys.path.insert(0, libPath)
+        computeMean = os.path.join(scriptedModulesPath, '../hidden-cli-modules/computeMean')
+        #computeMean = "/Users/lpascal/Desktop/test/DiagnosticIndexExtension-build/bin/computeMean"
         arguments = list()
         arguments.append("--groupnumber")
         arguments.append(group)
@@ -1449,12 +1449,12 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         #  --shapemodel: Shape model of one group (H5 file path)
 
         #     Creation of the command line
-        #scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
-        #scriptedModulesPath = os.path.dirname(scriptedModulesPath)
-        #libPath = os.path.join(scriptedModulesPath)
-        #sys.path.insert(0, libPath)
-        #computeShapeOALoads = os.path.join(scriptedModulesPath, '../hidden/cli-modules/computeShapeOALoads')
-        computeShapeOALoads = "/Users/lpascal/Desktop/test/DiagnosticIndexExtension-build/bin/computeShapeOALoads"
+        scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
+        scriptedModulesPath = os.path.dirname(scriptedModulesPath)
+        libPath = os.path.join(scriptedModulesPath)
+        sys.path.insert(0, libPath)
+        computeShapeOALoads = os.path.join(scriptedModulesPath, '../hidden-cli-modules/computeShapeOALoads')
+        #computeShapeOALoads = "/Users/lpascal/Desktop/test/DiagnosticIndexExtension-build/bin/computeShapeOALoads"
         arguments = list()
         arguments.append("--groupnumber")
         arguments.append(groupnumber)
