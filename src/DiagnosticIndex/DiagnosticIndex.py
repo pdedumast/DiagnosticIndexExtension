@@ -217,8 +217,60 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
     # function called each time that the scene is closed (if Diagnostic Index has been initialized)
     def onCloseScene(self, obj, event):
-        #TODO
-        pass
+        print "onCloseScene"
+        self.dictVTKFiles = dict()
+        self.dictGroups = dict()
+        self.dictCSVFile = dict()
+        self.directoryList = list()
+        self.groupSelected = set()
+        self.dictShapeModels = dict()
+        self.patientList = list()
+        self.dictResult = dict()
+
+        # Tab: New Classification Groups
+        self.pathLineEdit_NewGroups.setCurrentPath(" ")
+        self.checkableComboBox_ChoiceOfGroup.setDisabled(True)
+        self.tableWidget_VTKFiles.clear()
+        self.tableWidget_VTKFiles.setColumnCount(4)
+        self.tableWidget_VTKFiles.setHorizontalHeaderLabels([' VTK files ', ' Group ', ' Visualization ', 'Color'])
+        self.tableWidget_VTKFiles.setColumnWidth(0, 200)
+        horizontalHeader = self.tableWidget_VTKFiles.horizontalHeader()
+        horizontalHeader.setStretchLastSection(False)
+        horizontalHeader.setResizeMode(0,qt.QHeaderView.Stretch)
+        horizontalHeader.setResizeMode(1,qt.QHeaderView.ResizeToContents)
+        horizontalHeader.setResizeMode(2,qt.QHeaderView.ResizeToContents)
+        horizontalHeader.setResizeMode(3,qt.QHeaderView.ResizeToContents)
+        self.tableWidget_VTKFiles.verticalHeader().setVisible(False)
+        self.tableWidget_VTKFiles.setDisabled(True)
+        self.pushButton_previewVTKFiles.setDisabled(True)
+        self.pushButton_compute.setDisabled(True)
+        self.directoryButton_exportNewClassification.setDisabled(True)
+        self.pushButton_exportNewClassification.setDisabled(True)
+
+        # Tab: Selection of Classification Groups
+        self.pathLineEdit_selectionClassificationGroups.setCurrentPath(" ")
+        if self.spinBox_healthyGroup.enabled:
+            self.spinBox_healthyGroup.setValue(0)
+        self.spinBox_healthyGroup.setDisabled(True)
+
+        # Tab: Preview of Classification Group
+        self.MRMLTreeView_classificationGroups.setDisabled(True)
+        self.pushButton_previewGroups.setDisabled(True)
+
+        # Tab: Select Input Data
+        self.pathLineEdit_CSVInputData.setCurrentPath(" ")
+        self.checkBox_fileInGroups.setDisabled(True)
+
+        # Tab: Result / Analysis
+        self.tableWidget_result.clear()
+        self.tableWidget_result.setColumnCount(2)
+        self.tableWidget_result.setHorizontalHeaderLabels([' VTK files ', ' Assigned Group '])
+        self.tableWidget_result.setColumnWidth(0, 300)
+        horizontalHeader = self.tableWidget_result.horizontalHeader()
+        horizontalHeader.setStretchLastSection(False)
+        horizontalHeader.setResizeMode(0,qt.QHeaderView.Stretch)
+        horizontalHeader.setResizeMode(1,qt.QHeaderView.ResizeToContents)
+        self.tableWidget_result.verticalHeader().setVisible(False)
 
     # Only one tab can be display at the same time:
     #   When one tab is opened all the other tabs are closed
