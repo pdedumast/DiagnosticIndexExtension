@@ -86,8 +86,6 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.collapsibleButton_SelectClassificationGroups = self.logic.get('CollapsibleButton_SelectClassificationGroups')
         self.pathLineEdit_selectionClassificationGroups = self.logic.get('PathLineEdit_selectionClassificationGroups')
         self.spinBox_healthyGroup = self.logic.get('spinBox_healthyGroup')
-        #          Tab: Preview of Classification Groups
-        self.collapsibleButton_previewClassificationGroups = self.logic.get('CollapsibleButton_previewClassificationGroups')
         self.pushButton_previewGroups = self.logic.get('pushButton_previewGroups')
         self.MRMLTreeView_classificationGroups = self.logic.get('MRMLTreeView_classificationGroups')
         #          Tab: Select Input Data
@@ -187,10 +185,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.collapsibleButton_SelectClassificationGroups.connect('clicked()',
                                                                   lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_SelectClassificationGroups))
         self.pathLineEdit_selectionClassificationGroups.connect('currentPathChanged(const QString)', self.onSelectionClassificationGroups)
-        #          Tab: Preview of Classification Groups
-        self.collapsibleButton_previewClassificationGroups.connect('clicked()',
-                                                                   lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_previewClassificationGroups))
-        self.pushButton_previewGroups.connect('clicked()', self.onPreviewClassificationGroups)
+        self.pushButton_previewGroups.connect('clicked()', self.onPreviewGroupMeans)
         #          Tab: Select Input Data
         self.collapsibleButton_selectInputData.connect('clicked()',
                                                        lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_selectInputData))
@@ -279,7 +274,6 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             collapsibleButtonList = [self.collapsibleButton_creationCSVFile,
                                      self.collapsibleButton_creationClassificationGroups,
                                      self.collapsibleButton_SelectClassificationGroups,
-                                     self.collapsibleButton_previewClassificationGroups,
                                      self.collapsibleButton_selectInputData,
                                      self.collapsibleButton_Result]
             for collapsibleButton in collapsibleButtonList:
@@ -623,7 +617,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         filePathExisting = list()
 
         #   Check if the CSV file exists
-        CSVfilePath = directory + "/NewClassificationGroups.csv"
+        CSVfilePath = directory + "/ClassificationGroups.csv"
         if os.path.exists(CSVfilePath):
             filePathExisting.append(CSVfilePath)
 
@@ -652,7 +646,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                 return
 
         # Save the CSV File and the shape model of each group
-        self.logic.saveNewClassificationGroups('NewClassificationGroups.csv', directory, self.dictShapeModels)
+        self.logic.saveNewClassificationGroups('ClassificationGroups.csv', directory, self.dictShapeModels)
 
         # Remove the shape model (GX.h5) of each group
         self.logic.removeDataAfterNCG(self.dictShapeModels)
@@ -714,15 +708,11 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         #      Set the Maximum value of spinBox_healthyGroup at the maximum number groups
         self.spinBox_healthyGroup.setMaximum(len(self.dictShapeModels))
 
-    # ---------------------------------------------------- #
-    #     Tab: Preview of Classification Groups            #
-    # ---------------------------------------------------- #
-
     # Function to preview the Classification Groups in Slicer
     #    - The opacity of all the vtk files is set to 0.8
     #    - The healthy group is white and the others are red
-    def onPreviewClassificationGroups(self):
-        print "------ Preview of the Classification Groups in Slicer ------"
+    def onPreviewGroupMeans(self):
+        print "------ Preview of the Group's Mean in Slicer ------"
 
         for group, h5path in self.dictShapeModels.items():
             # Compute the mean of each group thanks to Statismo
