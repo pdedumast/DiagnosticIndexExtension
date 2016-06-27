@@ -44,7 +44,7 @@ set(EXTENSION_DESCRIPTION "TODO")
 set(EXTENSION_ICONURL "TODO")
 set(EXTENSION_SCREENSHOTURLS "TODO")
 set(EXTENSION_DEPENDS ShapePopulationViewer)
-set(EXTENSION_BUILD_SUBDIRECTORY .)
+set(EXTENSION_BUILD_SUBDIRECTORY ${LOCAL_PROJECT_NAME}-build)
 
 #-----------------------------------------------------------------------------
 include(ExternalProject)
