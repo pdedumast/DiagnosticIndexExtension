@@ -689,12 +689,9 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.logic.table = self.logic.readCSVFile(self.pathLineEdit_selectionClassificationGroups.currentPath)
         condition3 = self.logic.creationDictShapeModel(self.dictShapeModels)
 
-        # Check if there is one H5 file per group
-        condition4 = self.logic.checkCSVFile(self.dictShapeModels)
-
         #    If the file is not conformed:
         #    Re-initialization of the dictionary containing the Classification Groups
-        if not (condition3 and condition4):
+        if not condition3:
             self.dictShapeModels = dict()
             self.pathLineEdit_selectionClassificationGroups.setCurrentPath(" ")
             return
@@ -1063,11 +1060,21 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         return True
 
     # Function to store the shape models for each group in a dictionary
-    #    - The function return True if all the paths exist, else False
+    #    The function return True IF
+    #       - all the paths exist
+    #       - the extension of the paths is .h5
+    #       - there are only one shape model per group
+    #    else False
     def creationDictShapeModel(self, dict):
         for i in range(0, self.table.GetNumberOfRows()):
             if not os.path.exists(self.table.GetValue(i,0).ToString()):
                 slicer.util.errorDisplay('H5 file not found, path not good at lign ' + str(i+2))
+                return False
+            if not os.path.splitext(os.path.basename(self.table.GetValue(i,0).ToString()))[1] == '.h5':
+                slicer.util.errorDisplay('Wrong extension file at lign ' + str(i+2) + '. A hdf5 file is needed!')
+                return False
+            if self.table.GetValue(i,1).ToInt() in dict:
+                slicer.util.errorDisplay('There are more than one shape model (hdf5 file) by groups')
                 return False
             dict[self.table.GetValue(i,1).ToInt()] = self.table.GetValue(i,0).ToString()
 
@@ -1077,18 +1084,6 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         #     print "Groupe: " + str(key)
         #     print "H5 Files: " + str(value)
 
-        return True
-
-    # Function to check the CSV file containing the Classification Groups
-    #    - If there isn't one path per group
-    #         Return False
-    #      Else
-    #         Return True
-    def checkCSVFile(self, dict):
-        for value in dict.values():
-            if type(value) is ListType:
-                slicer.util.errorDisplay('There are more than one vtk file by groups')
-                return False
         return True
 
     # Function to add a color map "DisplayClassificationGroup" to all the vtk files
