@@ -7,7 +7,7 @@ set(MODULE_PYTHON_SCRIPTS
   )
 
 set(MODULE_PYTHON_RESOURCES
-  Resources/Icons/temporaryIcon.png
+  Resources/Icons/${MODULE_NAME}_logo.png
   Resources/UI/${MODULE_NAME}.ui
   )
 
