@@ -55,15 +55,11 @@ if(NOT ( DEFINED "USE_SYSTEM_${extProjName}" AND "${USE_SYSTEM_${extProjName}}" 
       -DBUILD_EXAMPLES:BOOL=OFF
       -DBUILD_TESTING:BOOL=OFF
       -DBUILD_SHARED_LIBS:BOOL=OFF
-      -DUSE_SYSTEM_HDF5:BOOL=ON
-      -DHDF5_DIR:PATH=${HDF5_DIR}
-      -DUSE_SYSTEM_VTK:BOOL=ON
-      -DVTK_DIR:PATH=${VTK_DIR}
     )
 
 ### --- End Project specific additions
   set(${proj}_REPOSITORY "${git_protocol}://github.com/laurapascal/statismo.git")
-  set(${proj}_GIT_TAG 8a30a7dfb62c9dbf12f8a8201bc952891975e334)
+  set(${proj}_GIT_TAG 4d8a3b103cbc9178a2f44823260a41afc1901f3c)
   ExternalProject_Add(
     ${proj}
     GIT_REPOSITORY ${${proj}_REPOSITORY}
