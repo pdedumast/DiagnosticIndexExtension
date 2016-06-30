@@ -4,6 +4,8 @@ import unittest
 from __main__ import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 from types import *
+import math
+import shutil
 
 
 class DiagnosticIndex(ScriptedLoadableModule):
@@ -44,13 +46,16 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.dictCSVFile = dict()
         self.directoryList = list()
         self.groupSelected = set()
+        self.dictShapeModels = dict()
+        self.patientList = list()
+        self.dictResult = dict()
 
         # Interface
         loader = qt.QUiLoader()
-        moduleName = 'DiagnosticIndex'
-        scriptedModulesPath = eval('slicer.modules.%s.path' % moduleName.lower())
+        self.moduleName = 'DiagnosticIndex'
+        scriptedModulesPath = eval('slicer.modules.%s.path' % self.moduleName.lower())
         scriptedModulesPath = os.path.dirname(scriptedModulesPath)
-        path = os.path.join(scriptedModulesPath, 'Resources', 'UI', '%s.ui' % moduleName)
+        path = os.path.join(scriptedModulesPath, 'Resources', 'UI', '%s.ui' % self.moduleName)
         qfile = qt.QFile(path)
         qfile.open(qt.QFile.ReadOnly)
 
@@ -84,17 +89,19 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.collapsibleButton_SelectClassificationGroups = self.logic.get('CollapsibleButton_SelectClassificationGroups')
         self.pathLineEdit_selectionClassificationGroups = self.logic.get('PathLineEdit_selectionClassificationGroups')
         self.spinBox_healthyGroup = self.logic.get('spinBox_healthyGroup')
-        #          Tab: Preview of Classification Groups
-        self.collapsibleButton_previewClassificationGroups = self.logic.get('CollapsibleButton_previewClassificationGroups')
         self.pushButton_previewGroups = self.logic.get('pushButton_previewGroups')
         self.MRMLTreeView_classificationGroups = self.logic.get('MRMLTreeView_classificationGroups')
         #          Tab: Select Input Data
         self.collapsibleButton_selectInputData = self.logic.get('CollapsibleButton_selectInputData')
-        self.MRMLNodeComboBox_VTKFile = self.logic.get('MRMLNodeComboBox_VTKFile')
+        self.MRMLNodeComboBox_VTKInputData = self.logic.get('MRMLNodeComboBox_VTKInputData')
+        self.pathLineEdit_CSVInputData = self.logic.get('PathLineEdit_CSVInputData')
         self.checkBox_fileInGroups = self.logic.get('checkBox_fileInGroups')
-        self.pushButton_applyTMJtype = self.logic.get('pushButton_applyTMJtype')
+        self.pushButton_applyOAIndex = self.logic.get('pushButton_applyOAIndex')
         #          Tab: Result / Analysis
         self.collapsibleButton_Result = self.logic.get('CollapsibleButton_Result')
+        self.tableWidget_result = self.logic.get('tableWidget_result')
+        self.pushButton_exportResult = self.logic.get('pushButton_exportResult')
+        self.directoryButton_exportResult = self.logic.get('DirectoryButton_exportResult')
 
         # Widget Configuration
 
@@ -111,7 +118,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_previewVTKFiles.setDisabled(True)
 
         #     qMRMLNodeComboBox configuration
-        self.MRMLNodeComboBox_VTKFile.setMRMLScene(slicer.mrmlScene)
+        self.MRMLNodeComboBox_VTKInputData.setMRMLScene(slicer.mrmlScene)
 
         #     initialisation of the stackedWidget to display the button "add group"
         self.stackedWidget_manageGroup.setCurrentIndex(0)
@@ -136,7 +143,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         headerTreeView.setResizeMode(sceneModel.colorColumn,qt.QHeaderView.ResizeToContents)
         headerTreeView.setResizeMode(sceneModel.opacityColumn,qt.QHeaderView.ResizeToContents)
 
-        #     table configuration
+        #     configuration of the table for preview VTK file
         self.tableWidget_VTKFiles.setColumnCount(4)
         self.tableWidget_VTKFiles.setHorizontalHeaderLabels([' VTK files ', ' Group ', ' Visualization ', 'Color'])
         self.tableWidget_VTKFiles.setColumnWidth(0, 200)
@@ -148,9 +155,19 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         horizontalHeader.setResizeMode(3,qt.QHeaderView.ResizeToContents)
         self.tableWidget_VTKFiles.verticalHeader().setVisible(False)
 
-        # ---------------------------------------------------- #
-        #                Connection
-        # ---------------------------------------------------- #
+        #     configuration of the table to display the result
+        self.tableWidget_result.setColumnCount(2)
+        self.tableWidget_result.setHorizontalHeaderLabels([' VTK files ', ' Assigned Group '])
+        self.tableWidget_result.setColumnWidth(0, 300)
+        horizontalHeader = self.tableWidget_result.horizontalHeader()
+        horizontalHeader.setStretchLastSection(False)
+        horizontalHeader.setResizeMode(0,qt.QHeaderView.Stretch)
+        horizontalHeader.setResizeMode(1,qt.QHeaderView.ResizeToContents)
+        self.tableWidget_result.verticalHeader().setVisible(False)
+
+        # --------------------------------------------------------- #
+        #                       Connection                          #
+        # --------------------------------------------------------- #
         #          Tab: Creation of CSV File for Classification Groups
         self.collapsibleButton_creationCSVFile.connect('clicked()',
                                                        lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_creationCSVFile))
@@ -171,19 +188,18 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.collapsibleButton_SelectClassificationGroups.connect('clicked()',
                                                                   lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_SelectClassificationGroups))
         self.pathLineEdit_selectionClassificationGroups.connect('currentPathChanged(const QString)', self.onSelectionClassificationGroups)
-        #          Tab: Preview of Classification Groups
-        self.collapsibleButton_previewClassificationGroups.connect('clicked()',
-                                                                   lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_previewClassificationGroups))
-        self.pushButton_previewGroups.connect('clicked()', self.onPreviewClassificationGroups)
+        self.pushButton_previewGroups.connect('clicked()', self.onPreviewGroupMeans)
         #          Tab: Select Input Data
         self.collapsibleButton_selectInputData.connect('clicked()',
                                                        lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_selectInputData))
-        self.MRMLNodeComboBox_VTKFile.connect('currentNodeChanged(vtkMRMLNode*)', self.onEnableOption)
+        self.MRMLNodeComboBox_VTKInputData.connect('currentNodeChanged(vtkMRMLNode*)', self.onVTKInputData)
         self.checkBox_fileInGroups.connect('clicked()', self.onCheckFileInGroups)
-        self.pushButton_applyTMJtype.connect('clicked()', self.onComputeTMJtype)
+        self.pathLineEdit_CSVInputData.connect('currentPathChanged(const QString)', self.onCSVInputData)
+        self.pushButton_applyOAIndex.connect('clicked()', self.onComputeOAIndex)
         #          Tab: Result / Analysis
         self.collapsibleButton_Result.connect('clicked()',
                                               lambda: self.onSelectedCollapsibleButtonOpen(self.collapsibleButton_Result))
+        self.pushButton_exportResult.connect('clicked()', self.onExportResult)
 
         slicer.mrmlScene.AddObserver(slicer.mrmlScene.EndCloseEvent, self.onCloseScene)
 
@@ -199,8 +215,60 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
     # function called each time that the scene is closed (if Diagnostic Index has been initialized)
     def onCloseScene(self, obj, event):
-        #TODO
-        pass
+        print "onCloseScene"
+        self.dictVTKFiles = dict()
+        self.dictGroups = dict()
+        self.dictCSVFile = dict()
+        self.directoryList = list()
+        self.groupSelected = set()
+        self.dictShapeModels = dict()
+        self.patientList = list()
+        self.dictResult = dict()
+
+        # Tab: New Classification Groups
+        self.pathLineEdit_NewGroups.setCurrentPath(" ")
+        self.checkableComboBox_ChoiceOfGroup.setDisabled(True)
+        self.tableWidget_VTKFiles.clear()
+        self.tableWidget_VTKFiles.setColumnCount(4)
+        self.tableWidget_VTKFiles.setHorizontalHeaderLabels([' VTK files ', ' Group ', ' Visualization ', 'Color'])
+        self.tableWidget_VTKFiles.setColumnWidth(0, 200)
+        horizontalHeader = self.tableWidget_VTKFiles.horizontalHeader()
+        horizontalHeader.setStretchLastSection(False)
+        horizontalHeader.setResizeMode(0,qt.QHeaderView.Stretch)
+        horizontalHeader.setResizeMode(1,qt.QHeaderView.ResizeToContents)
+        horizontalHeader.setResizeMode(2,qt.QHeaderView.ResizeToContents)
+        horizontalHeader.setResizeMode(3,qt.QHeaderView.ResizeToContents)
+        self.tableWidget_VTKFiles.verticalHeader().setVisible(False)
+        self.tableWidget_VTKFiles.setDisabled(True)
+        self.pushButton_previewVTKFiles.setDisabled(True)
+        self.pushButton_compute.setDisabled(True)
+        self.directoryButton_exportNewClassification.setDisabled(True)
+        self.pushButton_exportNewClassification.setDisabled(True)
+
+        # Tab: Selection of Classification Groups
+        self.pathLineEdit_selectionClassificationGroups.setCurrentPath(" ")
+        if self.spinBox_healthyGroup.enabled:
+            self.spinBox_healthyGroup.setValue(0)
+        self.spinBox_healthyGroup.setDisabled(True)
+
+        # Tab: Preview of Classification Group
+        self.MRMLTreeView_classificationGroups.setDisabled(True)
+        self.pushButton_previewGroups.setDisabled(True)
+
+        # Tab: Select Input Data
+        self.pathLineEdit_CSVInputData.setCurrentPath(" ")
+        self.checkBox_fileInGroups.setDisabled(True)
+
+        # Tab: Result / Analysis
+        self.tableWidget_result.clear()
+        self.tableWidget_result.setColumnCount(2)
+        self.tableWidget_result.setHorizontalHeaderLabels([' VTK files ', ' Assigned Group '])
+        self.tableWidget_result.setColumnWidth(0, 300)
+        horizontalHeader = self.tableWidget_result.horizontalHeader()
+        horizontalHeader.setStretchLastSection(False)
+        horizontalHeader.setResizeMode(0,qt.QHeaderView.Stretch)
+        horizontalHeader.setResizeMode(1,qt.QHeaderView.ResizeToContents)
+        self.tableWidget_result.verticalHeader().setVisible(False)
 
     # Only one tab can be display at the same time:
     #   When one tab is opened all the other tabs are closed
@@ -209,7 +277,6 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             collapsibleButtonList = [self.collapsibleButton_creationCSVFile,
                                      self.collapsibleButton_creationClassificationGroups,
                                      self.collapsibleButton_SelectClassificationGroups,
-                                     self.collapsibleButton_previewClassificationGroups,
                                      self.collapsibleButton_selectInputData,
                                      self.collapsibleButton_Result]
             for collapsibleButton in collapsibleButtonList:
@@ -217,7 +284,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             selectedCollapsibleButton.setChecked(True)
 
     # ---------------------------------------------------- #
-    # Tab: Creation of CSV File for Classification Groups
+    # Tab: Creation of CSV File for Classification Groups  #
     # ---------------------------------------------------- #
 
     # Function in order to manage the display of these three buttons:
@@ -254,6 +321,12 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
         # Add the paths of vtk files of the dictionary
         self.logic.addGroupToDictionary(self.dictCSVFile, directory, self.directoryList, self.spinBox_group.value)
+        condition = self.logic.checkSeveralMeshInDict(self.dictCSVFile)
+
+        if not condition:
+            # Remove the paths of vtk files of the dictionary
+            self.logic.removeGroupToDictionary(self.dictCSVFile, self.directoryList, self.spinBox_group.value)
+            return
 
         # Increment of the number of the group in the spinbox
         self.spinBox_group.blockSignals(True)
@@ -308,7 +381,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     def onExportForCreationCSVFile(self):
         # Path of the csv file
         directory = self.directoryButton_exportCSVFile.directory.encode('utf-8')
-        filepath = directory + '/VTKFilesToCreateClassificationGroups.csv'
+        basename = 'Groups.csv'
+        filepath = directory + "/" + basename
 
         # Message if the csv file already exists
         messageBox = ctk.ctkMessageBox()
@@ -323,7 +397,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                 return
 
         # Save the CSV File
-        self.logic.creationCSVFileForClassificationGroups(filepath, self.dictCSVFile)
+        self.logic.creationCSVFile(directory, basename, self.dictCSVFile, "Groups")
 
         # Re-Initialization of the first tab
         self.spinBox_group.setMaximum(1)
@@ -345,7 +419,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pathLineEdit_NewGroups.setCurrentPath(filepath)
 
     # ---------------------------------------------------- #
-    #     Tab: Creation of New Classification Groups
+    #     Tab: Creation of New Classification Groups       #
     # ---------------------------------------------------- #
 
     # Function to read the CSV file containing all the vtk filepaths needed to create the new Classification Groups
@@ -367,13 +441,14 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             return
 
         # Download the CSV file
-        self.logic.readCSVFile(self.pathLineEdit_NewGroups.currentPath)
+        self.logic.table = self.logic.readCSVFile(self.pathLineEdit_NewGroups.currentPath)
         condition2 = self.logic.creationDictVTKFiles(self.dictVTKFiles)
+        condition3 = self.logic.checkSeveralMeshInDict(self.dictVTKFiles)
 
         # If the file is not conformed:
         #    Re-initialization of the dictionary containing all the data
         #    which will be used to create a new Classification Groups
-        if not condition2:
+        if not (condition2 and condition3):
             self.dictVTKFiles = dict()
             self.pathLineEdit_NewGroups.setCurrentPath(" ")
             return
@@ -505,8 +580,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             slicer.cli.run(launcherSPV, None, parameters, wait_for_completion=True)
 
             # Remove the vtk files previously created in the temporary directory of Slicer
-            for key, value in self.dictVTKFiles.items():
-                self.logic.removeDataInTemporaryDirectory(key, value)
+            for value in self.dictVTKFiles.values():
+                self.logic.removeDataVTKFiles(value)
 
     # Function to compute the new Classification Groups
     #    - Remove all the arrays of all the vtk files
@@ -516,18 +591,14 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             # Delete all the arrays in vtk file
             self.logic.deleteArrays(key, value)
 
-            if len(value) > 1:
-                # Create the datalist for Statismo
-                datalist = self.logic.creationTXTFile(key, value)
+            # Compute the shape model of each group
+            self.logic.buildShapeModel(key, value)
 
-                # Compute the mean of each group thanks to Statismo
-                self.logic.computeMean(key, datalist)
+            # Remove the vtk files used to create the shape model of each group
+            self.logic.removeDataVTKFiles(value)
 
-                # Remove the files previously created in the temporary directory
-                self.logic.removeDataInTemporaryDirectory(key, value)
-
-            # Storage of the means for each group
-            self.logic.storageMean(self.dictGroups, key)
+            # Storage of the shape model for each group
+            self.logic.storeShapeModel(self.dictShapeModels, key)
 
         # Enable the option to export the new data
         self.directoryButton_exportNewClassification.setEnabled(True)
@@ -549,16 +620,16 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         filePathExisting = list()
 
         #   Check if the CSV file exists
-        CSVfilePath = directory + "/NewClassificationGroups.csv"
+        CSVfilePath = directory + "/ClassificationGroups.csv"
         if os.path.exists(CSVfilePath):
             filePathExisting.append(CSVfilePath)
 
-        #   Check if the mean VTK files exist
-        for key, value in self.dictGroups.items():
-            VTKFilename = os.path.basename(value[0])
-            VTKFilePath = directory + '/' + VTKFilename
-            if os.path.exists(VTKFilePath):
-                filePathExisting.append(VTKFilePath)
+        #   Check if the shape model exist
+        for key, value in self.dictShapeModels.items():
+            modelFilename = os.path.basename(value)
+            modelFilePath = directory + '/' + modelFilename
+            if os.path.exists(modelFilePath):
+                filePathExisting.append(modelFilePath)
 
         #   Write the message for the user
         if len(filePathExisting) > 0:
@@ -577,24 +648,33 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             if choice == messageBox.No:
                 return
 
-        # Save the CSV File and the means of each group
-        self.logic.saveNewClassificationGroups(CSVfilePath, directory, self.dictGroups)
-        self.dictGroups = dict()
+        # Save the CSV File and the shape model of each group
+        self.logic.saveNewClassificationGroups('ClassificationGroups.csv', directory, self.dictShapeModels)
+
+        # Remove the shape model (GX.h5) of each group
+        self.logic.removeDataAfterNCG(self.dictShapeModels)
+
+        # Re-Initialization of the dictionary containing the path of the shape model of each group
+        self.dictShapeModels = dict()
 
         # Message for the user
         slicer.util.delayDisplay("Files Saved")
+
+        # Disable the option to export the new data
+        self.directoryButton_exportNewClassification.setDisabled(True)
+        self.pushButton_exportNewClassification.setDisabled(True)
 
         # Load automatically the CSV file in the pathline in the next tab "Selection of Classification Groups"
         self.pathLineEdit_selectionClassificationGroups.setCurrentPath(CSVfilePath)
 
     # ---------------------------------------------------- #
-    #        Tab: Selection of Classification Groups
+    #        Tab: Selection of Classification Groups       #
     # ---------------------------------------------------- #
 
     # Function to select the Classification Groups
     def onSelectionClassificationGroups(self):
         # Re-initialization of the dictionary containing the Classification Groups
-        self.dictGroups = dict()
+        self.dictShapeModels = dict()
 
         # Check if the path exists:
         if not os.path.exists(self.pathLineEdit_selectionClassificationGroups.currentPath):
@@ -609,16 +689,13 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             return
 
         # Read CSV File:
-        self.logic.readCSVFile(self.pathLineEdit_selectionClassificationGroups.currentPath)
-        condition2 = self.logic.creationDictVTKFiles(self.dictGroups)
-
-        # Check if there is one VTK Files per group
-        condition3 = self.logic.checkCSVFile(self.dictGroups)
+        self.logic.table = self.logic.readCSVFile(self.pathLineEdit_selectionClassificationGroups.currentPath)
+        condition3 = self.logic.creationDictShapeModel(self.dictShapeModels)
 
         #    If the file is not conformed:
         #    Re-initialization of the dictionary containing the Classification Groups
-        if not (condition2 and condition3):
-            self.dictGroups = dict()
+        if not condition3:
+            self.dictShapeModels = dict()
             self.pathLineEdit_selectionClassificationGroups.setCurrentPath(" ")
             return
 
@@ -629,17 +706,20 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
 
         # Configuration of the spinbox specify the healthy group
         #      Set the Maximum value of spinBox_healthyGroup at the maximum number groups
-        self.spinBox_healthyGroup.setMaximum(len(self.dictGroups))
-
-    # ---------------------------------------------------- #
-    #     Tab: Preview of Classification Groups
-    # ---------------------------------------------------- #
+        self.spinBox_healthyGroup.setMaximum(len(self.dictShapeModels))
 
     # Function to preview the Classification Groups in Slicer
     #    - The opacity of all the vtk files is set to 0.8
     #    - The healthy group is white and the others are red
-    def onPreviewClassificationGroups(self):
-        print "------ Preview of the Classification Groups in Slicer ------"
+    def onPreviewGroupMeans(self):
+        print "------ Preview of the Group's Mean in Slicer ------"
+
+        for group, h5path in self.dictShapeModels.items():
+            # Compute the mean of each group thanks to Statismo
+            self.logic.computeMean(group, h5path)
+
+            # Storage of the means for each group
+            self.logic.storageMean(self.dictGroups, group)
 
         # If the user doesn't specify the healthy group
         #     error message for the user
@@ -649,10 +729,10 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             # Error message:
             slicer.util.errorDisplay('Miss the number of the healthy group ')
         else:
-            for i in self.dictGroups.keys():
-                filename = self.dictGroups.get(i, None)
+            for key in self.dictGroups.keys():
+                filename = self.dictGroups.get(key, None)
                 loader = slicer.util.loadModel
-                loader(filename[0])
+                loader(filename)
 
         # Change the color and the opacity for each vtk file
             list = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
@@ -662,7 +742,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                 disp = model.GetDisplayNode()
                 for group in self.dictGroups.keys():
                     filename = self.dictGroups.get(group, None)
-                    if os.path.splitext(os.path.basename(filename[0]))[0] == model.GetName():
+                    if os.path.splitext(os.path.basename(filename))[0] == model.GetName():
                         if self.spinBox_healthyGroup.value == group:
                             disp.SetColor(1, 1, 1)
                             disp.VisibilityOn()
@@ -680,13 +760,43 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         threeDView.resetFocalPoint()
 
     # ---------------------------------------------------- #
-    #               Tab: Select Input Data
+    #               Tab: Select Input Data                 #
     # ---------------------------------------------------- #
 
+    # Function to select the vtk Input Data
+    def onVTKInputData(self):
+        # Remove the old vtk file in the temporary directory of slicer if it exists
+        if self.patientList:
+            print "onVTKInputData remove old vtk file"
+            oldVTKPath = slicer.app.temporaryPath + "/" + os.path.basename(self.patientList[0])
+            if os.path.exists(oldVTKPath):
+                os.remove(oldVTKPath)
+
+        # Re-Initialization of the patient list
+        self.patientList = list()
+
+        # Handle checkbox "File already in the groups"
+        self.enableOption()
+
+        # Delete the path in CSV file
+        currentNode = self.MRMLNodeComboBox_VTKInputData.currentNode()
+        if currentNode == None:
+            return
+        self.pathLineEdit_CSVInputData.setCurrentPath(" ")
+
+        # Adding the vtk file to the list of patient
+        currentNode = self.MRMLNodeComboBox_VTKInputData.currentNode()
+        if not currentNode == None:
+            #     Save the selected node in the temporary directory of slicer
+            vtkfilepath = slicer.app.temporaryPath + "/" + self.MRMLNodeComboBox_VTKInputData.currentNode().GetName() + ".vtk"
+            self.logic.saveVTKFile(self.MRMLNodeComboBox_VTKInputData.currentNode().GetPolyData(), vtkfilepath)
+            #     Adding to the list
+            self.patientList.append(vtkfilepath)
+
     # Function to handle the checkbox "File already in the groups"
-    def onEnableOption(self):
+    def enableOption(self):
         # Enable or disable the checkbox "File already in the groups" according to the data previously selected
-        currentNode = self.MRMLNodeComboBox_VTKFile.currentNode()
+        currentNode = self.MRMLNodeComboBox_VTKInputData.currentNode()
         if currentNode == None:
             if self.checkBox_fileInGroups.isChecked():
                 self.checkBox_fileInGroups.setChecked(False)
@@ -703,7 +813,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
     #           - deselected checkbox
     def onCheckFileInGroups(self):
         if self.checkBox_fileInGroups.isChecked():
-            node = self.MRMLNodeComboBox_VTKFile.currentNode()
+            node = self.MRMLNodeComboBox_VTKInputData.currentNode()
             if not node == None:
                 vtkfileToFind = node.GetName() + '.vtk'
                 find = self.logic.actionOnDictionary(self.dictVTKFiles, vtkfileToFind, None, 'find')
@@ -711,47 +821,84 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                     slicer.util.errorDisplay('The selected file is not a file used to create the Classification Groups!')
                     self.checkBox_fileInGroups.setChecked(False)
 
-    # Function to define the TMJ OA type of the patient
+    # Function to select the CSV Input Data
+    def onCSVInputData(self):
+        self.patientList = list()
+
+        # Delete the path in VTK file
+        if not os.path.exists(self.pathLineEdit_CSVInputData.currentPath):
+            return
+        self.MRMLNodeComboBox_VTKInputData.setCurrentNode(None)
+
+        # Adding the name of the node a list
+        if os.path.exists(self.pathLineEdit_CSVInputData.currentPath):
+            patientTable = vtk.vtkTable
+            patientTable = self.logic.readCSVFile(self.pathLineEdit_CSVInputData.currentPath)
+            for i in range(0, patientTable.GetNumberOfRows()):
+                self.patientList.append(patientTable.GetValue(i,0).ToString())
+
+        # Handle checkbox "File already in the groups"
+        self.enableOption()
+
+    # Function to define the OA index type of the patient
+    #    *** CROSS VALIDATION:
     #    - If the user specified that the vtk file was in the groups used to create the Classification Groups:
     #           - Save the current classification groups
     #           - Re-compute the new classification groups without this file
-    #           - Define the TMJ OA type of a patient: TODO
+    #           - Define the OA index type of a patient
     #           - Recovery the classification groups
+    #    *** Define the OA index of a patient:
     #    - Else:
-    #           - Define the TMJ OA type of a patient: TODO
-    def onComputeTMJtype(self):
-        print "------ Compute the TMJ Type of a patient ------"
-        # Check if the user gave all the data used to compute the TMJ OA type of the patient:
-        # - VTK input data
+    #           - Compute the ShapeOALoads for each group
+    #           - Compute the OA index type of a patient
+    def onComputeOAIndex(self):
+        print "------ Compute the OA index Type of a patient ------"
+        # Check if the user gave all the data used to compute the OA index type of the patient:
+        # - VTK input data or CSV input data
         # - CSV file containing the Classification Groups
         if not os.path.exists(self.pathLineEdit_selectionClassificationGroups.currentPath):
             slicer.util.errorDisplay('Miss the CSV file containing the Classification Groups')
             return
-        if self.MRMLNodeComboBox_VTKFile.currentNode() == None:
-            slicer.util.errorDisplay('Miss the VTK Input Data')
+        if self.MRMLNodeComboBox_VTKInputData.currentNode() == None and not self.pathLineEdit_CSVInputData.currentPath:
+            slicer.util.errorDisplay('Miss the Input Data')
             return
 
+        # **** CROSS VALIDATION ****
         # If the selected file is in the groups used to create the classification groups
         if self.checkBox_fileInGroups.isChecked():
             #      Remove the file in the dictionary used to compute the classification groups
             listSaveVTKFiles = list()
-            vtkfileToRemove = self.MRMLNodeComboBox_VTKFile.currentNode().GetName() + '.vtk'
+            vtkfileToRemove = self.MRMLNodeComboBox_VTKInputData.currentNode().GetName() + '.vtk'
             listSaveVTKFiles = self.logic.actionOnDictionary(self.dictVTKFiles,
                                                              vtkfileToRemove,
                                                              listSaveVTKFiles,
                                                              'remove')
 
             #      Copy the Classification Groups
-            dictGroupsTemp = dict()
-            dictGroupsTemp = self.dictGroups
-            self.dictGroups = dict()
+            dictShapeModelsTemp = dict()
+            dictShapeModelsTemp = self.dictShapeModels
+            self.dictShapeModels = dict()
 
             #      Re-compute the new classification groups
             self.onComputeNewClassificationGroups()
 
-        # Define the TMJ OA type of a patient
-        # TODO: call the CLI to define the TMJ OA type of a patient
+        # *** Define the OA index type of a patient ***
+        # For each patient:
+        for patient in self.patientList:
+            # Compute the ShapeOALoads for each group
+            for key, value in self.dictShapeModels.items():
+                self.logic.computeShapeOALoads(key, patient, value)
 
+            # Compute the OA index type of a patient
+            resultgroup = self.logic.computeOAIndex(self.dictShapeModels.keys())
+
+            # Display the result in the next tab "Result/Analysis"
+            self.displayResult(resultgroup, os.path.basename(patient))
+
+        # Remove the CSV file containing the Shape OA Vector Loads
+        self.logic.removeShapeOALoadsCSVFile(self.dictShapeModels.keys())
+
+        # **** CROSS VALIDATION ****
         # If the selected file is in the groups used to create the classification groups
         if self.checkBox_fileInGroups.isChecked():
             #      Add the file previously removed to the dictionary used to create the classification groups
@@ -759,12 +906,62 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                                           vtkfileToRemove,
                                           listSaveVTKFiles,
                                           'add')
-            #      Recovery the Classification Groups previously saved
-            self.dictGroups = dictGroupsTemp
 
-# ------------------------------------------------------------------------------------
-#                                   ALGORITHM
-# ------------------------------------------------------------------------------------
+            #      Recovery the Classification Groups previously saved
+            self.dictShapeModels = dictShapeModelsTemp
+
+            #      Remove the data previously created
+            self.logic.removeDataAfterNCG(self.dictGroups)
+
+    # ---------------------------------------------------- #
+    #               Tab: Result / Analysis                 #
+    # ---------------------------------------------------- #
+
+    # Function to display the result in a table
+    def displayResult(self, resultGroup, VTKfilename):
+        row = self.tableWidget_result.rowCount
+        self.tableWidget_result.setRowCount(row + 1)
+        # Column 0: VTK file
+        labelVTKFile = qt.QLabel(VTKfilename)
+        labelVTKFile.setAlignment(0x84)
+        self.tableWidget_result.setCellWidget(row, 0, labelVTKFile)
+        # Column 1: Assigned Group
+        labelAssignedGroup = qt.QLabel(resultGroup)
+        labelAssignedGroup.setAlignment(0x84)
+        self.tableWidget_result.setCellWidget(row, 1, labelAssignedGroup)
+
+    # Function to export the result in a CSV File
+    def onExportResult(self):
+        # Directory
+        directory = self.directoryButton_exportResult.directory.encode('utf-8')
+        basename = "OAResult.csv"
+        # Message if the csv file already exists
+        filepath = directory + "/" + basename
+        messageBox = ctk.ctkMessageBox()
+        messageBox.setWindowTitle(' /!\ WARNING /!\ ')
+        messageBox.setIcon(messageBox.Warning)
+        if os.path.exists(filepath):
+            messageBox.setText('File ' + filepath + ' already exists!')
+            messageBox.setInformativeText('Do you want to replace it ?')
+            messageBox.setStandardButtons( messageBox.No | messageBox.Yes)
+            choice = messageBox.exec_()
+            if choice == messageBox.No:
+                return
+
+        # Directory
+        directory = self.directoryButton_exportResult.directory.encode('utf-8')
+
+        # Store data in a dictionary
+        self.logic.creationCSVFileForResult(self.tableWidget_result, directory, basename)
+
+        # Message in the python console and for the user
+        print "Export CSV File: " + filepath
+        slicer.util.delayDisplay("Result saved")
+
+
+# ------------------------------------------------------------------------------------ #
+#                                   ALGORITHM                                          #
+# ------------------------------------------------------------------------------------ #
 
 
 class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
@@ -824,7 +1021,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         CSVreader.SetHaveHeaders(True)
         CSVreader.Update()
 
-        self.table = CSVreader.GetOutput()
+        return CSVreader.GetOutput()
 
     # Function to create a dictionary containing all the vtk filepaths sorted by group
     #    - the paths are given by a CSV file
@@ -833,36 +1030,63 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
     #      Else if all the path of all vtk file exist
     #         Return True
     def creationDictVTKFiles(self, dict):
-        for i in range(0,self.table.GetNumberOfRows()):
+        for i in range(0, self.table.GetNumberOfRows()):
             if not os.path.exists(self.table.GetValue(i,0).ToString()):
                 slicer.util.errorDisplay('VTK file not found, path not good at lign ' + str(i+2))
                 return False
             value = dict.get(self.table.GetValue(i,1).ToInt(), None)
             if value == None:
-                tempList = list()
-                tempList.append(self.table.GetValue(i,0).ToString())
-                dict[self.table.GetValue(i,1).ToInt()] = tempList
+                dict[self.table.GetValue(i,1).ToInt()] = self.table.GetValue(i,0).ToString()
             else:
-                value.append(self.table.GetValue(i,0).ToString())
-        return True
+                if type(value) is ListType:
+                    value.append(self.table.GetValue(i,0).ToString())
+                else:
+                    tempList = list()
+                    tempList.append(value)
+                    tempList.append(self.table.GetValue(i,0).ToString())
+                    dict[self.table.GetValue(i,1).ToInt()] = tempList
 
         # Check
-        # print "Number of Groups in CSV Files: " + str(len(dictVTKFiles))
-        # for i in range(1, len(dictVTKFiles) + 1):
-        #     value = dictVTKFiles.get(i, None)
-        #     print "Groupe: " + str(i)
+        # print "Number of Groups in CSV Files: " + str(len(dict))
+        # for key, value in dict.items():
+        #     print "Groupe: " + str(key)
         #     print "VTK Files: " + str(value)
 
-    # Function to check the CSV file containing the Classification Groups
-    #    - If there isn't one path per group
-    #         Return False
-    #      Else
-    #         Return True
-    def checkCSVFile(self, dict):
-        for value in dict.values():
-            if len(value) > 1:
-                slicer.util.errorDisplay('There are more than one vtk file by groups')
+        return True
+
+    # Function to check if in each group there is at least more than one mesh
+    def checkSeveralMeshInDict(self, dict):
+        for key, value in dict.items():
+            if type(value) is not ListType or len(value) == 1:
+                slicer.util.errorDisplay('The group ' + str(key) + ' must contain more than one mesh.')
                 return False
+        return True
+
+    # Function to store the shape models for each group in a dictionary
+    #    The function return True IF
+    #       - all the paths exist
+    #       - the extension of the paths is .h5
+    #       - there are only one shape model per group
+    #    else False
+    def creationDictShapeModel(self, dict):
+        for i in range(0, self.table.GetNumberOfRows()):
+            if not os.path.exists(self.table.GetValue(i,0).ToString()):
+                slicer.util.errorDisplay('H5 file not found, path not good at lign ' + str(i+2))
+                return False
+            if not os.path.splitext(os.path.basename(self.table.GetValue(i,0).ToString()))[1] == '.h5':
+                slicer.util.errorDisplay('Wrong extension file at lign ' + str(i+2) + '. A hdf5 file is needed!')
+                return False
+            if self.table.GetValue(i,1).ToInt() in dict:
+                slicer.util.errorDisplay('There are more than one shape model (hdf5 file) by groups')
+                return False
+            dict[self.table.GetValue(i,1).ToInt()] = self.table.GetValue(i,0).ToString()
+
+        # Check
+        # print "Number of Groups in CSV Files: " + str(len(dict))
+        # for key, value in dict.items():
+        #     print "Groupe: " + str(key)
+        #     print "H5 Files: " + str(value)
+
         return True
 
     # Function to add a color map "DisplayClassificationGroup" to all the vtk files
@@ -1058,11 +1282,7 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 pointData.RemoveArray(0)
 
             # Creation of the path of the vtk file without arrays to save it in the temporary directory of Slicer
-            #    If there is just one file in the list, it is renamed meanGroupKey.vtk
-            if len(value) > 1:
-                filename = os.path.basename(vtkFile)
-            else:
-                filename = 'meanGroup' + str(key) + '.vtk'
+            filename = os.path.basename(vtkFile)
             filepath = slicer.app.temporaryPath + '/' + filename
 
             # Save the vtk file without array in the temporary directory in Slicer
@@ -1079,101 +1299,82 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
         writer.Update()
         writer.Write()
 
-    # Creation of a txt file that will be used to create the shape model thanks to the CLI statismo-build-shape-model
-    #    To be conformed, the txt file will have one path of a mesh-file per line
-    def creationTXTFile(self, key, value):
-        # Filepath of the txt file
-        filename = "group" + str(key)
-        dataListPath = slicer.app.temporaryPath + '/' + filename + '.txt'
+    # Function to save in the temporary directory of Slicer a shape model file called GX.h5
+    # built with the vtk files contained in the group X
+    def buildShapeModel(self, groupnumber, vtkList):
+        print "--- Build the shape model of the group " + str(groupnumber) + " ---"
 
-        # Write one path of a mesh-file per line
-        file = open(dataListPath, "w")
-        for vtkFile in value:
-            pathfile = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
-            file.write(pathfile + "\n")
-        file.close()
-        return dataListPath
-
-    # Function to compute the mean between all the mesh-files contained in one group
-    def computeMean(self, key, datalist):
-        print "--- Compute the mean of the group " + str(key) + " ---"
-
-        # Call of statismo-build-shape-model used to build a shape model from a given list of meshes
+        # Call of saveModel used to build a shape model from a given list of meshes
         # Arguments:
-        #  --data-list is the path to a file containing a list of mesh-files that will be used to create the shape model
-        #  --output-file is the path where the newly build model should be saved (creation of hdf5 file)
+        #  --groupnumber is the number of the group used to create the shape model
+        #  --vtkfilelist is a list of vtk paths of one group that will be used to create the shape model
+        #  --resultdir is the path where the newly build model should be saved
 
         #     Creation of the command line
-        statismoBuildShapeModel = "/Users/lpascal/Applications/Statismo-static/statismo-build/Statismo-build/bin/statismo-build-shape-model"
+        scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
+        scriptedModulesPath = os.path.dirname(scriptedModulesPath)
+        libPath = os.path.join(scriptedModulesPath)
+        sys.path.insert(0, libPath)
+        saveModel = os.path.join(scriptedModulesPath, '../hidden-cli-modules/saveModel')
+        #saveModel = "/Users/lpascal/Desktop/test/DiagnosticIndexExtension-build/bin/saveModel"
         arguments = list()
-        arguments.append("--data-list")
-        arguments.append(datalist)
-        arguments.append("--output-file")
-        filename = "group" + str(key)
-        outputFile = slicer.app.temporaryPath + '/' + filename + '.h5'
-        arguments.append(outputFile)
+        arguments.append("--groupnumber")
+        arguments.append(groupnumber)
+        arguments.append("--vtkfilelist")
+        vtkfilelist = ""
+        for vtkFiles in vtkList:
+            vtkfilelist = vtkfilelist + vtkFiles + ','
+        arguments.append(vtkfilelist)
+        arguments.append("--resultdir")
+        resultdir = slicer.app.temporaryPath
+        arguments.append(resultdir)
 
         #     Call the CLI
         process = qt.QProcess()
-        print "Calling " + os.path.basename(statismoBuildShapeModel)
-        process.start(statismoBuildShapeModel, arguments)
+        print "Calling " + os.path.basename(saveModel)
+        process.start(saveModel, arguments)
         process.waitForStarted()
         # print "state: " + str(process.state())
         process.waitForFinished()
         # print "error: " + str(process.error())
 
+    # Function to compute the mean between all the mesh-files contained in one group
+    def computeMean(self, group, h5path):
+        print "--- Compute the mean of the group " + str(group) + " ---"
 
-        # Call of vtkBasicSamplingExample which will save the mean of the group contained in the hdf5 file
+        # Call of computeMean used to compute a mean from a shape model
         # Arguments:
-        #  First argument:   path of the hdf5 file created previously
-        #  Second argument:  path of the directory where the 3 following vtk files will be save:
-        #                       - mean.vtk
-        #                       - samplePC1.vtk
-        #                       - randomsample.vtk
+        #  --groupnumber is the number of the group used to create the shape model
+        #  --resultdir is the path where the newly build model should be saved
+        #  --shapemodel: Shape model of one group (H5 file path)
 
         #     Creation of the command line
-        vtkBasicSamplingExample = "/Users/lpascal/Applications/Statismo-static/statismo-build/Statismo-build/bin/vtkBasicSamplingExample"
+        scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
+        scriptedModulesPath = os.path.dirname(scriptedModulesPath)
+        libPath = os.path.join(scriptedModulesPath)
+        sys.path.insert(0, libPath)
+        computeMean = os.path.join(scriptedModulesPath, '../hidden-cli-modules/computeMean')
+        #computeMean = "/Users/lpascal/Desktop/test/DiagnosticIndexExtension-build/bin/computeMean"
         arguments = list()
-        modelname = outputFile
-        arguments.append(modelname)
+        arguments.append("--groupnumber")
+        arguments.append(group)
+        arguments.append("--resultdir")
         resultdir = slicer.app.temporaryPath
         arguments.append(resultdir)
+        arguments.append("--shapemodel")
+        arguments.append(h5path)
 
         #     Call the executable
-        process2 = qt.QProcess()
-        print "Calling " + os.path.basename(vtkBasicSamplingExample)
-        process2.start(vtkBasicSamplingExample, arguments)
-        process2.waitForStarted()
+        process = qt.QProcess()
+        print "Calling " + os.path.basename(computeMean)
+        process.start(computeMean, arguments)
+        process.waitForStarted()
         # print "state: " + str(process2.state())
-        process2.waitForFinished()
+        process.waitForFinished()
         # print "error: " + str(process2.error())
 
-        # Rename of the mean of the group
-        oldname = slicer.app.temporaryPath + '/mean.vtk'
-        newname = slicer.app.temporaryPath + '/meanGroup' + str(key) + '.vtk'
-        os.rename(oldname, newname)
-
     # Function to remove in the temporary directory all the data used to create the mean for each group
-    def removeDataInTemporaryDirectory(self, key, value):
-        # remove of 'groupX.txt'
-        filename = "group" + str(key)
-        dataListPath = slicer.app.temporaryPath + '/' + filename + '.txt'
-        if os.path.exists(dataListPath):
-            os.remove(dataListPath)
-
-        # remove of 'groupX.h5'
-        outputFilePath = slicer.app.temporaryPath + '/' + filename + '.h5'
-        if os.path.exists(outputFilePath):
-            os.remove(outputFilePath)
-
-        # remove of samplePC1.vtk and randomsample.vtk
-        path = slicer.app.temporaryPath + '/samplePC1.vtk'
-        if os.path.exists(path):
-            os.remove(path)
-        path = slicer.app.temporaryPath + '/randomsample.vtk'
-        if os.path.exists(path):
-            os.remove(path)
-
+    def removeDataVTKFiles(self, value):
         # remove of all the vtk file
         for vtkFile in value:
             filepath = slicer.app.temporaryPath + '/' + os.path.basename(vtkFile)
@@ -1184,54 +1385,64 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
     def storageMean(self, dictGroups, key):
         filename = "meanGroup" + str(key)
         meanPath = slicer.app.temporaryPath + '/' + filename + '.vtk'
-        value = list()
-        value.append(meanPath)
-        dictGroups[key] = value
+        dictGroups[key] = meanPath
 
-    # Function to create a CSV file containing all the vtk files with the group corresponding
-    #    - This CSV file will be use to create a new Classification Groups
-    #    - This file is created from a dictionary filled thanks to teh first tab
-    def creationCSVFileForClassificationGroups(self, filePath, dictForCSV):
-        file = open(filePath, 'w')
+    # Function to storage the shape model of each group in a dictionary
+    def storeShapeModel(self, dictShapeModels, key):
+        filename = "G" + str(key)
+        modelPath = slicer.app.temporaryPath + '/' + filename + '.h5'
+        dictShapeModels[key] = modelPath
+
+    # Function to create a CSV file:
+    #    - Two columns are always created:
+    #          - First column: path of the vtk files
+    #          - Second column: group associated to this vtk file
+    #    - If saveH5 is True, this CSV file will contain a New Classification Group, a thrid column is then added
+    #          - Thrid column: path of the shape model of each group
+    def creationCSVFile(self, directory, CSVbasename, dictForCSV, option):
+        CSVFilePath = directory + "/" + CSVbasename
+        file = open(CSVFilePath, 'w')
         cw = csv.writer(file, delimiter=',')
-        cw.writerow(['VTK Files', 'Group'])
+        if option == "Groups":
+            cw.writerow(['VTK Files', 'Group'])
+        elif option == "NCG":
+            cw.writerow(['H5 Path', 'Group'])
         for key, value in dictForCSV.items():
-            for VTKPath in value:
-                cw.writerow([VTKPath, str(key)])
+            if type(value) is ListType:
+                for vtkFile in value:
+                    if option == "Groups":
+                        cw.writerow([vtkFile, str(key)])
+            elif option == "NCG":
+                cw.writerow([value, str(key)])
         file.close()
-
 
     # Function to save the data of the new Classification Groups in the directory given by the user
     #       - The mean vtk files of each groups
-    #       - The CSV file containing the path of each mean group with the group associated
-    def saveNewClassificationGroups(self, CSVfilePath, directory, dictGroups):
-
-        # Save the mean vtk files of each groups
+    #       - The shape models of each groups
+    #       - The CSV file containing:
+    #               - First column: the paths of mean vtk file of each group
+    #               - Second column: the groups associated
+    #               - Third column: the paths of the shape model of each group
+    def saveNewClassificationGroups(self, basename, directory, dictShapeModels):
         dictForCSV = dict()
-        for key, value in dictGroups.items():
-            if os.path.exists(value[0]):
-                # Read VTK File
-                reader = vtk.vtkDataSetReader()
-                reader.SetFileName(value[0])
-                reader.ReadAllVectorsOn()
-                reader.ReadAllScalarsOn()
-                reader.Update()
-                polyData = reader.GetOutput()
+        for key, value in dictShapeModels.items():
+            # Save the shape model (h5 file) of each group
+            h5Basename = "G" + str(key) + ".h5"
+            oldh5path = slicer.app.temporaryPath + "/" + h5Basename
+            newh5path = directory + "/" + h5Basename
+            shutil.copyfile(oldh5path, newh5path)
+            dictForCSV[key] = newh5path
 
-                # Creation of the path of the vtk file
-                VTKFilename = os.path.basename(value[0])
-                VTKFilePath = directory + '/' + VTKFilename
+        # Save the CSV file containing all the data useful in order to compute OAIndex of a patient
+        self.creationCSVFile(directory, basename, dictForCSV, "NCG")
 
-                # Save the vtk file
-                self.saveVTKFile(polyData, VTKFilePath)
-
-                # Fill a dictionary which will be used to created the CSV file containing the Classification Groups
-                valueList = list()
-                valueList.append(VTKFilePath)
-                dictForCSV[key] = valueList
-
-        # Save the CSV file containing the path of each mean group with the group associated
-        self.creationCSVFileForClassificationGroups(CSVfilePath, dictForCSV)
+    # Function to remove in the temporary directory all the data useless after to do a export of the new Classification Groups
+    def removeDataAfterNCG(self, dict):
+        for key in dict.keys():
+            # Remove of the shape model of each group
+            h5Path = slicer.app.temporaryPath + "/G" + str(key) + ".h5"
+            if os.path.exists(h5Path):
+                os.remove(h5Path)
 
     # Function to make some action on a dictionary
     def actionOnDictionary(self, dict, file, listSaveVTKFiles, action):
@@ -1268,6 +1479,83 @@ class DiagnosticIndexLogic(ScriptedLoadableModuleLogic):
                 value = dict.get(listSaveVTKFiles[0], None)
                 value.append(listSaveVTKFiles[1])
 
+    # Function in order to compute the shape OA loads of a sample
+    def computeShapeOALoads(self, groupnumber, vtkfilepath, shapemodel):
+        # Call of computeShapeOALoads used to compute shape loads of a sample for the current shape model
+        # Arguments:
+        #  --vtkfile: Sample Input Data (VTK file path)
+        #  --resultdir: The path where the newly build model should be saved
+        #  --groupnumber: The number of the group used to create the shape model
+        #  --shapemodel: Shape model of one group (H5 file path)
+
+        #     Creation of the command line
+        scriptedModulesPath = eval('slicer.modules.%s.path' % self.interface.moduleName.lower())
+        scriptedModulesPath = os.path.dirname(scriptedModulesPath)
+        libPath = os.path.join(scriptedModulesPath)
+        sys.path.insert(0, libPath)
+        computeShapeOALoads = os.path.join(scriptedModulesPath, '../hidden-cli-modules/computeShapeOALoads')
+        #computeShapeOALoads = "/Users/lpascal/Desktop/test/DiagnosticIndexExtension-build/bin/computeShapeOALoads"
+        arguments = list()
+        arguments.append("--groupnumber")
+        arguments.append(groupnumber)
+        arguments.append("--vtkfile")
+        arguments.append(vtkfilepath)
+        arguments.append("--resultdir")
+        resultdir = slicer.app.temporaryPath
+        arguments.append(resultdir)
+        arguments.append("--shapemodel")
+        arguments.append(shapemodel)
+
+        #     Call the CLI
+        process = qt.QProcess()
+        print "Calling " + os.path.basename(computeShapeOALoads)
+        process.start(computeShapeOALoads, arguments)
+        process.waitForStarted()
+        # print "state: " + str(process.state())
+        process.waitForFinished()
+        # print "error: " + str(process.error())
+
+    # Function to compute the OA index of a patient
+    def computeOAIndex(self, keyList):
+        OAIndexList = list()
+        for key in keyList:
+            ShapeOAVectorLoadsPath = slicer.app.temporaryPath + "/ShapeOAVectorLoadsG" + str(key) + ".csv"
+            if not os.path.exists(ShapeOAVectorLoadsPath):
+                return
+            tableShapeOAVectorLoads = vtk.vtkTable
+            tableShapeOAVectorLoads = self.readCSVFile(ShapeOAVectorLoadsPath)
+            sum = 0
+            for row in range(0, tableShapeOAVectorLoads.GetNumberOfRows()):
+                ShapeOALoad = tableShapeOAVectorLoads.GetValue(row, 0).ToDouble()
+                sum = sum + math.pow(ShapeOALoad, 2)
+            OAIndexList.append(math.sqrt(sum)/tableShapeOAVectorLoads.GetNumberOfRows())
+        # print OAIndexList
+        resultGroup = OAIndexList.index(min(OAIndexList)) + 1
+        # print "RESULT: " + str(resultGroup)
+        return resultGroup
+
+    # Function to remove the shape model of each group
+    def removeShapeOALoadsCSVFile(self, keylist):
+        for key in keylist:
+            shapeOALoadsPath = slicer.app.temporaryPath + "/ShapeOAVectorLoadsG" + str(key) + ".csv"
+            if os.path.exists(shapeOALoadsPath):
+                os.remove(shapeOALoadsPath)
+
+    def creationCSVFileForResult(self, table, directory, CSVbasename):
+        CSVFilePath = directory + "/" + CSVbasename
+        file = open(CSVFilePath, 'w')
+        cw = csv.writer(file, delimiter=',')
+        cw.writerow(['VTK Files', 'Assigned Group'])
+        for row in range(0,table.rowCount):
+            # Recovery of the filename of vtk file
+            qlabel = table.cellWidget(row, 0)
+            vtkFile = qlabel.text
+            # Recovery of the assigned group
+            qlabel = table.cellWidget(row, 1)
+            assignedGroup = qlabel.text
+
+            # Write the result in the CSV File
+            cw.writerow([vtkFile, str(assignedGroup)])
 
 class DiagnosticIndexTest(ScriptedLoadableModuleTest):
     pass
