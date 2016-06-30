@@ -16,8 +16,9 @@ class DiagnosticIndex(ScriptedLoadableModule):
         parent.title = "DiagnosticIndex"
         parent.categories = ["Quantification"]
         parent.dependencies = []
-        parent.contributors = ["Laura PASCAL (UofM)"]
+        parent.contributors = ["Laura PASCAL (UofM), Beatriz Paniagua (UNC) and Juan Carlos Prieto (UNC)"]
         parent.helpText = """
+
             """
         parent.acknowledgementText = """
             This work was supported by the National
