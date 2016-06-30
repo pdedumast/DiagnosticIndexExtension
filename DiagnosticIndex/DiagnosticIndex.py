@@ -18,7 +18,9 @@ class DiagnosticIndex(ScriptedLoadableModule):
         parent.dependencies = []
         parent.contributors = ["Laura PASCAL (UofM), Beatriz Paniagua (UNC) and Juan Carlos Prieto (UNC)"]
         parent.helpText = """
-
+            DiagnosticIndex is used to define the OA type of
+            a patient according a Classification Groups that
+            you can create.
             """
         parent.acknowledgementText = """
             This work was supported by the National
