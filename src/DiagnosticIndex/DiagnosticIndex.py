@@ -887,7 +887,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
                 self.logic.computeShapeOALoads(key, patient, value)
 
             # Compute the OA index type of a patient
-            resultgroup = self.logic.computeOAIndex(self.dictGroups.keys())
+            resultgroup = self.logic.computeOAIndex(self.dictShapeModels.keys())
 
             # Display the result in the next tab "Result/Analysis"
             self.displayResult(resultgroup, os.path.basename(patient))
