@@ -2,7 +2,7 @@
 
 ## Description
 
-TODO
+DiagnosticIndex is used to define the OA type of a patient according a Classification Groups that you can create.
 
 ##License
 
