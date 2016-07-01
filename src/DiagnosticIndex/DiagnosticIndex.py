@@ -665,6 +665,8 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
         self.pushButton_exportNewClassification.setDisabled(True)
 
         # Load automatically the CSV file in the pathline in the next tab "Selection of Classification Groups"
+        if self.pathLineEdit_selectionClassificationGroups.currentPath == CSVfilePath:
+            self.pathLineEdit_selectionClassificationGroups.setCurrentPath(" ")
         self.pathLineEdit_selectionClassificationGroups.setCurrentPath(CSVfilePath)
 
     # ---------------------------------------------------- #
