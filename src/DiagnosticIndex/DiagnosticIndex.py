@@ -911,7 +911,7 @@ class DiagnosticIndexWidget(ScriptedLoadableModuleWidget):
             self.dictShapeModels = dictShapeModelsTemp
 
             #      Remove the data previously created
-            self.logic.removeDataAfterNCG(self.dictGroups)
+            self.logic.removeDataAfterNCG(self.dictShapeModels)
 
     # ---------------------------------------------------- #
     #               Tab: Result / Analysis                 #
